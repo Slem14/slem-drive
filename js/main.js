@@ -1,7 +1,7 @@
 // Slem Drive — boot, view switching, render loop, and wiring between
 // geo / limits / spotify / lyrics / color / settings / demo.
 
-import { GeoService } from './geo.js';
+import { GeoService, smoothSpeedStep } from './geo.js';
 import { LimitService } from './limits.js';
 import { SpotifyService, redirectUri } from './spotify.js';
 import { fetchLyrics, parseLRC, activeLineIndex } from './lyrics.js';
@@ -46,6 +46,9 @@ const state = {
   wakeLock: null,
   heading: null,
   wx: null,              // latest weather data (live or demo)
+  gpsShown: null,        // GPS quality currently on screen
+  gpsPending: null,      // candidate quality waiting out the debounce
+  gpsPendingSince: 0,
 };
 
 // ---------- toast ----------
@@ -394,18 +397,10 @@ async function onTrack(track) {
   }
 }
 
-// `hidden` is an HTMLElement property — assigning it on an SVG element only
-// creates a JS expando and never sets the attribute the CSS matches on, so
-// the icons must be toggled through the attribute itself.
-function setHidden(el, hide) {
-  if (hide) el.setAttribute('hidden', '');
-  else el.removeAttribute('hidden');
-}
-
 function onPlayback(p) {
   state.playback = p;
-  setHidden($('ic-play'), p.isPlaying);
-  setHidden($('ic-pause'), !p.isPlaying);
+  // see the #np-play rules in app.css for why this is a class, not `hidden`
+  $('np-play').classList.toggle('playing', !!p.isPlaying);
 }
 
 // ---------- weather ----------
@@ -450,11 +445,14 @@ function renderWeather(wx) {
 // car nose (which always points up in the rose).
 function updateWindRose() {
   const wx = state.wx;
-  const arrow = $('wind-arrow');
-  if (!wx || wx.windFromDeg == null) { arrow.setAttribute('opacity', '0'); return; }
+  const flow = $('wind-flow');
+  if (!wx || wx.windFromDeg == null) { flow.setAttribute('opacity', '0'); return; }
   const rel = relativeWindAngle(wx.windFromDeg, state.heading ?? 0);
-  arrow.setAttribute('opacity', '1');
-  arrow.style.transform = `rotate(${rel}deg)`;
+  flow.setAttribute('opacity', '1');
+  flow.style.transform = `rotate(${rel}deg)`;
+  // stronger wind streams faster: ~2.2 s when barely moving, ~0.45 s in a gale
+  const dur = Math.max(0.45, 2.2 - (wx.windKmh || 0) / 45);
+  flow.style.setProperty('--wind-dur', dur.toFixed(2) + 's');
   // relative side while driving, absolute compass direction while parked
   $('wind-side').textContent = state.heading != null
     ? windSideLabel(rel)
@@ -498,10 +496,7 @@ function frame(now) {
   const dt = Math.min((now - lastFrame) / 1000, 0.2);
   lastFrame = now;
 
-  // lerp the displayed speed
-  const diff = state.targetKmh - state.displayKmh;
-  state.displayKmh += diff * Math.min(1, dt * 4.5);
-  if (Math.abs(diff) < 0.05) state.displayKmh = state.targetKmh;
+  state.displayKmh = smoothSpeedStep(state.displayKmh, state.targetKmh, dt);
 
   const shown = Math.round(toUnit(state.displayKmh));
   const numEl = $('speed-num');
@@ -512,11 +507,19 @@ function frame(now) {
   checkOverspeed(state.displayKmh);
   applySpeedReactivity(state.displayKmh, settings.get('react.speed'));
 
-  // GPS quality dot (demo = always good)
-  const dot = $('gps-dot');
+  // GPS quality dot. Raw accuracy jitters every fix, which made the dot
+  // blink between colours — only commit a change once it has held for a
+  // moment, so the dot reports a trend instead of flickering.
   const q = state.demo ? 'good' : geo.quality();
-  dot.className = 'status-dot ' + q;
-  if (!state.demo) setLimitStale(q === 'bad');
+  if (q !== state.gpsPending) {
+    state.gpsPending = q;
+    state.gpsPendingSince = now;
+  }
+  if (q !== state.gpsShown && now - state.gpsPendingSince > 2500) {
+    state.gpsShown = q;
+    $('gps-dot').className = 'status-dot ' + q;
+    if (!state.demo) setLimitStale(q === 'bad');
+  }
 
   // progress bar
   if (state.playback && state.playback.durationMs) {
@@ -829,11 +832,8 @@ async function boot() {
   // night dim re-check every minute
   setInterval(() => settings.applyNightDim(), 60000);
 
-  // OSM attribution
-  const credit = document.createElement('div');
-  credit.id = 'osm-credit';
-  credit.textContent = '© OpenStreetMap-Mitwirkende';
-  document.body.appendChild(credit);
+  // OSM attribution lives in Einstellungen → Info (the data licence requires
+  // credit, but it does not have to sit on the driving screen).
 
   // service worker
   if ('serviceWorker' in navigator) {

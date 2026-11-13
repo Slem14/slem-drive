@@ -56,7 +56,7 @@ html, body {
 /* Night dimming: a veil instead of a brightness filter (see above). */
 #night-veil {
   position: fixed;
-  inset: -2px;
+  inset: -12vh -6vw;
   z-index: 65; /* above the app and the settings sheet, below toasts */
   background: #000;
   opacity: calc(1 - var(--night-dim));
@@ -72,8 +72,10 @@ img { display: block; }
 
 #bg {
   position: fixed;
-  /* bleed past the viewport so rotation/URL-bar changes never expose a seam */
-  inset: -2px;
+  /* Bleed well past the viewport. iOS standalone can size fixed elements to a
+     box that excludes the safe areas, and the home indicator strip alone is
+     ~34px — a small bleed leaves it unpainted and it reads as a black bar. */
+  inset: -12vh -6vw;
   z-index: 0;
   overflow: hidden;
   background: var(--bg-base);
@@ -380,8 +382,34 @@ body[data-gauge="minimal"] #gauge-ticks text { display: none; }
 #wx-icon { font-size: 1rem; line-height: 1; }
 #wx-feels { font-size: .68rem; font-weight: 500; color: rgba(255,255,255,.5); }
 
-#wind-rose { width: 38px; height: 38px; flex: 0 0 auto; }
-#wind-arrow { transition: transform .8s var(--ease), opacity .4s; transform-origin: 22px 22px; }
+#wind-rose { width: 40px; height: 40px; flex: 0 0 auto; overflow: visible; }
+
+/* The airflow group rotates to the wind's bearing relative to the car; the
+   streaks inside stream inward, so they visibly blow across the car. */
+#wind-flow {
+  transform-origin: 22px 22px;
+  transition: transform .8s var(--ease), opacity .4s;
+}
+#wind-flow .streak {
+  stroke: var(--accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  animation: wind-stream var(--wind-dur, 1.4s) linear infinite;
+}
+#wind-flow .streak:nth-child(1) { animation-delay: calc(var(--wind-dur, 1.4s) * -0.66); opacity: .55; }
+#wind-flow .streak:nth-child(2) { animation-delay: calc(var(--wind-dur, 1.4s) * -0.33); }
+#wind-flow .streak:nth-child(3) { opacity: .55; }
+
+@keyframes wind-stream {
+  0%   { transform: translateY(0);    opacity: 0; }
+  25%  { opacity: .9; }
+  75%  { opacity: .9; }
+  100% { transform: translateY(32px); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #wind-flow .streak { animation: none; opacity: .8; }
+}
 #wind-meta { display: flex; flex-direction: column; line-height: 1.15; }
 #wind-kmh { font-size: .85rem; }
 #wind-kmh::after { content: " km/h"; font-size: .6rem; color: rgba(255,255,255,.5); }
@@ -557,6 +585,14 @@ body.lyr-glow .lyr-line.active { text-shadow: 0 0 calc(22px * var(--glow)) color
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #np-controls { display: flex; align-items: center; gap: 2px; }
+
+/* Play/pause icon swap is driven purely by a class on the button. Toggling
+   `hidden` on the <svg> elements does not work: `hidden` is an HTMLElement
+   property, so assigning it to an SVG only sets a JS expando and the
+   attribute the CSS matches on is never written. */
+#np-play #ic-pause { display: none; }
+#np-play.playing #ic-play { display: none; }
+#np-play.playing #ic-pause { display: block; }
 
 #np-lyric-line {
   font-size: .92rem; font-weight: 600;
@@ -790,12 +826,4 @@ textarea.set-json {
 }
 @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(-8px); } }
 
-/* ---------- Footer credit ---------- */
-
-#osm-credit {
-  position: fixed;
-  bottom: 2px; right: 8px; z-index: 11;
-  font-size: .58rem;
-  color: rgba(255,255,255,.25);
-  pointer-events: none;
-}
+/* OSM attribution is shown in Einstellungen → Info, not on the driving screen. */

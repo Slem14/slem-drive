@@ -5,6 +5,18 @@ import { haversine } from './limits.js';
 
 const JITTER_FLOOR_KMH = 2; // show 0 below this
 
+// One frame of speed smoothing. The rate adapts to the size of the change:
+// real acceleration/braking moves several km/h and must land almost
+// immediately, while a ~1 km/h wobble between fixes is GPS noise and should
+// stay smooth. Pure, so the response time can be unit-tested.
+export function smoothSpeedStep(current, target, dt) {
+  const diff = target - current;
+  const mag = Math.abs(diff);
+  if (mag < 0.1) return target;
+  const rate = mag > 10 ? 40 : mag > 3 ? 28 : 18;
+  return current + diff * Math.min(1, dt * rate);
+}
+
 export class GeoService {
   constructor() {
     this.watchId = null;

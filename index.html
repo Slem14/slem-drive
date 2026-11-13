@@ -48,7 +48,7 @@
   <!-- Main app -->
   <main id="app" hidden>
     <header id="topbar">
-      <div id="gps-dot" class="status-dot" title="GPS"></div>
+      <div id="gps-dot" class="status-dot" title="GPS-Empfang: grün = genau, gelb = ungenau, rot = kein Signal"></div>
       <nav id="view-switch" class="glass seg" role="tablist">
         <button class="seg-btn active" data-view="tacho" role="tab" aria-selected="true">Tacho</button>
         <button class="seg-btn" data-view="lyrics" role="tab" aria-selected="false">Lyrics</button>
@@ -73,12 +73,17 @@
           <div id="wind-chip" class="glass wx-item">
             <svg id="wind-rose" viewBox="0 0 44 44" aria-hidden="true">
               <circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.5"/>
-              <!-- the car, always pointing up = direction of travel -->
-              <path d="M22 15.5 L25.4 27 L22 24.6 L18.6 27 Z" fill="rgba(255,255,255,.8)"/>
-              <!-- Wind: sits on the side it blows FROM and points inward, i.e.
-                   the way it pushes the car. Rotated relative to the car. -->
-              <g id="wind-arrow" opacity="0">
-                <path d="M22 12.4 L18.2 4.2 L22 6.4 L25.8 4.2 Z" fill="var(--accent)"/>
+              <!-- Airflow: rotated so it streams in from the side the wind
+                   blows from, flowing across the car the way it pushes it. -->
+              <g id="wind-flow" opacity="0">
+                <line class="streak" x1="15.5" y1="1" x2="15.5" y2="7"/>
+                <line class="streak" x1="22" y1="-1" x2="22" y2="6"/>
+                <line class="streak" x1="28.5" y1="1" x2="28.5" y2="7"/>
+              </g>
+              <!-- The car, always pointing up = direction of travel -->
+              <g id="car-glyph">
+                <rect x="18.5" y="15.4" width="7" height="13.2" rx="2.6" fill="rgba(255,255,255,.88)"/>
+                <rect x="19.7" y="17.4" width="4.6" height="3.1" rx="1" fill="rgba(10,10,14,.55)"/>
               </g>
             </svg>
             <div id="wind-meta">
@@ -144,7 +149,7 @@
           </button>
           <button id="np-play" class="icon-btn big" aria-label="Wiedergabe/Pause">
             <svg id="ic-play" viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
-            <svg id="ic-pause" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+            <svg id="ic-pause" viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
           </button>
           <button id="np-next" class="icon-btn" aria-label="Weiter">
             <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16 6h2v12h-2zM4 6v12l9-6z"/></svg>
