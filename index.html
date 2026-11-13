@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Slem Drive</title>
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Slem Drive">
+  <meta name="theme-color" content="#05060a">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+  <!-- Animated background: color blobs + grain -->
+  <div id="bg" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="grain"></div>
+  </div>
+
+  <!-- Overspeed vignette -->
+  <div id="vignette" aria-hidden="true"></div>
+
+  <!-- Start screen -->
+  <div id="start-screen">
+    <div class="glass start-card">
+      <img class="start-logo" src="icons/icon-192.png" alt="" width="84" height="84">
+      <h1>Slem Drive</h1>
+      <p class="start-sub">Tacho · Tempolimit · Lyrics</p>
+      <button id="btn-start" class="btn-primary">Losfahren</button>
+      <button id="btn-demo" class="btn-ghost">Demo-Modus</button>
+      <p id="a2hs-hint" class="hint" hidden>Tipp: In Safari über <strong>Teilen&nbsp;→ Zum Home-Bildschirm</strong> installieren, dann läuft die App im Vollbild.</p>
+    </div>
+  </div>
+
+  <!-- Main app -->
+  <main id="app" hidden>
+    <header id="topbar">
+      <div id="gps-dot" class="status-dot" title="GPS"></div>
+      <nav id="view-switch" class="glass seg" role="tablist">
+        <button class="seg-btn active" data-view="tacho" role="tab" aria-selected="true">Tacho</button>
+        <button class="seg-btn" data-view="lyrics" role="tab" aria-selected="false">Lyrics</button>
+      </nav>
+      <button id="btn-settings" class="icon-btn glass" aria-label="Einstellungen">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+          <circle cx="12" cy="12" r="3.2"/>
+          <path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.4-2.3 1a7 7 0 0 0-2-1.2L14.2 3h-4l-.4 2.5a7 7 0 0 0-2 1.2l-2.3-1-2 3.4 2 1.5a7 7 0 0 0 0 2.4l-2 1.5 2 3.4 2.3-1a7 7 0 0 0 2 1.2l.4 2.5h4l.4-2.5a7 7 0 0 0 2-1.2l2.3 1 2-3.4-2-1.5c.07-.4.1-.8.1-1.2z"/>
+        </svg>
+      </button>
+    </header>
+
+    <div id="views">
+      <!-- Tacho view -->
+      <section id="view-tacho" class="view active">
+        <div id="gauge-wrap">
+          <svg id="gauge" viewBox="0 0 300 300" aria-hidden="true">
+            <defs>
+              <linearGradient id="arc-grad" x1="0" y1="1" x2="1" y2="0">
+                <stop offset="0%" stop-color="var(--accent)"/>
+                <stop offset="100%" stop-color="var(--accent2)"/>
+              </linearGradient>
+              <filter id="arc-glow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="6" result="b"/>
+                <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+              </filter>
+            </defs>
+            <g id="gauge-ticks"></g>
+            <path id="arc-track" fill="none" stroke-linecap="round"/>
+            <path id="arc-value" fill="none" stroke="url(#arc-grad)" stroke-linecap="round" filter="url(#arc-glow)"/>
+            <circle id="arc-limit-dot" r="4" fill="#fff" opacity="0"/>
+          </svg>
+          <div id="speed-center">
+            <div id="speed-num">0</div>
+            <div id="speed-unit">km/h</div>
+          </div>
+        </div>
+
+        <div id="limit-block">
+          <div id="limit-sign" class="limit-unknown" role="img" aria-label="Tempolimit">
+            <span id="limit-text">–</span>
+          </div>
+          <div id="road-name"></div>
+        </div>
+      </section>
+
+      <!-- Lyrics view -->
+      <section id="view-lyrics" class="view">
+        <div id="lyrics-scroller">
+          <div id="lyrics-lines"></div>
+        </div>
+        <div id="lyrics-empty" hidden>
+          <p id="lyrics-empty-text">Keine Lyrics gefunden</p>
+        </div>
+      </section>
+    </div>
+
+    <!-- Now playing bar -->
+    <footer id="now-playing" class="glass">
+      <div id="np-main">
+        <img id="np-cover" alt="" crossorigin="anonymous">
+        <div id="np-meta">
+          <div id="np-title">Nicht verbunden</div>
+          <div id="np-artist">Spotify in den Einstellungen verbinden</div>
+        </div>
+        <div id="np-controls">
+          <button id="np-prev" class="icon-btn" aria-label="Zurück">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M6 6h2v12H6zM20 6v12l-9-6z"/></svg>
+          </button>
+          <button id="np-play" class="icon-btn big" aria-label="Wiedergabe/Pause">
+            <svg id="ic-play" viewBox="0 0 24 24" width="26" height="26" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+            <svg id="ic-pause" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" hidden><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>
+          </button>
+          <button id="np-next" class="icon-btn" aria-label="Weiter">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor"><path d="M16 6h2v12h-2zM4 6v12l9-6z"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="np-lyric-line"></div>
+      <div id="np-progress"><div id="np-progress-fill"></div></div>
+    </footer>
+  </main>
+
+  <!-- Settings sheet (content built by settings.js) -->
+  <div id="sheet-backdrop" hidden></div>
+  <div id="settings-sheet" class="glass" hidden>
+    <div id="sheet-handle"></div>
+    <div id="sheet-content"></div>
+  </div>
+
+  <!-- Quick theme strip (long press) -->
+  <div id="theme-strip" class="glass" hidden></div>
+
+  <!-- Toast -->
+  <div id="toast" hidden></div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

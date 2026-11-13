@@ -1,0 +1,16 @@
+{
+  "name": "Slem Drive",
+  "short_name": "Slem Drive",
+  "description": "Tacho, Tempolimit und Live-Lyrics fürs Auto",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05060a",
+  "theme_color": "#05060a",
+  "start_url": "./",
+  "scope": "./",
+  "lang": "de",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
