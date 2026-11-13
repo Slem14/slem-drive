@@ -78,17 +78,21 @@ export function applyAccentVars({ accent, accent2, blob1, blob2, blob3 }) {
 }
 
 // Apply a palette extracted from album art (bgMode 'album').
-export function applyAlbumPalette(img) {
+// locks: { accent, accent2, blob1, blob2, blob3 } — true = user pinned
+// that color, the album must not override it.
+export function applyAlbumPalette(img, locks = {}) {
   const pal = extractPalette(img);
   if (!pal) return false;
   const [a, b, c] = pal;
-  applyAccentVars({
+  const vars = {
     accent: rgbHex(toAccent(a)),
     accent2: rgbHex(toAccent(b)),
     blob1: rgbHex(toBlob(a)),
     blob2: rgbHex(toBlob(b)),
     blob3: rgbHex(toBlob(c, 0.3)),
-  });
+  };
+  for (const k of Object.keys(vars)) if (locks[k]) delete vars[k];
+  applyAccentVars(vars);
   return true;
 }
 
@@ -216,7 +220,14 @@ export class BpmPulse {
 // ---------- speed reactivity ----------
 
 // Blob drift speed + gauge glow scale gently with driving speed.
+// Only touch the CSS var when the value actually moved — writing root
+// vars every frame retargets every var-dependent transition on the page.
+let lastBlobSpeed = '';
 export function applySpeedReactivity(kmh, enabled) {
   const f = enabled ? 1 + Math.min(kmh / 140, 1) * 1.6 : 1;
-  root.style.setProperty('--blob-speed', f.toFixed(2));
+  const v = f.toFixed(1);
+  if (v !== lastBlobSpeed) {
+    lastBlobSpeed = v;
+    root.style.setProperty('--blob-speed', v);
+  }
 }

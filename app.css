@@ -17,6 +17,7 @@
   --glass-alpha: 1;         /* glass fill multiplier */
   --grain-opacity: 0.05;
   --pulse: 0;               /* 0..1 music pulse, set from JS */
+  --glow: 1;                /* glow intensity multiplier */
   --night-dim: 1;           /* global brightness for night mode */
   --speed-weight: 200;
   --gauge-thickness: 14;
@@ -68,7 +69,7 @@ img { display: block; }
   filter: blur(70px);
   opacity: calc(0.42 * var(--blob-intensity) + 0.14 * var(--pulse));
   will-change: transform;
-  transition: background 1.5s var(--ease), opacity .4s linear;
+  transition: background 1.5s var(--ease);
   transform: scale(calc(1 + 0.09 * var(--pulse)));
 }
 .blob-1 { background: var(--blob1); top: -22vmax; left: -18vmax; animation: drift1 calc(46s / var(--blob-speed)) ease-in-out infinite alternate; }
@@ -234,8 +235,8 @@ body.overspeed #vignette.enabled { opacity: 1; animation: vignette-pulse 1.4s ea
 #arc-track { stroke: rgba(255,255,255,.08); }
 #arc-value {
   transition: stroke .4s;
-  /* music-reactive glow: breathes with the pulse, in the accent color */
-  filter: drop-shadow(0 0 calc(5px + 11px * var(--pulse)) color-mix(in srgb, var(--accent) 75%, transparent));
+  /* music-reactive glow: breathes with the pulse, in the arc color */
+  filter: drop-shadow(0 0 calc((5px + 11px * var(--pulse)) * var(--glow)) color-mix(in srgb, var(--arc1, var(--accent)) 75%, transparent));
 }
 body.overspeed #arc-value { stroke: #ff3b4d; }
 #gauge-ticks line { stroke: rgba(255,255,255,.22); stroke-width: 1.5; stroke-linecap: round; }
@@ -258,8 +259,9 @@ body.overspeed #arc-value { stroke: #ff3b4d; }
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-  text-shadow: 0 0 calc(18px + 14px * var(--pulse)) color-mix(in srgb, var(--accent) 45%, transparent);
-  transition: color .4s;
+  color: var(--speed-color, #f2f5fa);
+  text-shadow: 0 0 calc((18px + 14px * var(--pulse)) * var(--glow)) color-mix(in srgb, var(--accent) 45%, transparent);
+  /* no color transition: per-frame CSS-var updates would pin it at its start value */
 }
 body.overspeed #speed-num { color: #ff6b78; }
 #speed-unit {
@@ -292,7 +294,7 @@ body[data-limit-pos="corner"] #limit-block {
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: #fdfdfd;
-  border: calc(var(--limit-size) * 0.115) solid #d2232a;
+  border: calc(var(--limit-size) * 0.115) solid var(--limit-ring, #d2232a);
   box-shadow: 0 8px 26px rgba(0,0,0,.45), inset 0 1px 2px rgba(255,255,255,.7);
   transition: transform .3s var(--ease);
 }
@@ -334,7 +336,7 @@ body[data-limit-size="l"] #limit-sign { --limit-size: 106px; }
 
 #road-name {
   font-size: .85rem; font-weight: 500;
-  color: rgba(255,255,255,.6);
+  color: var(--road-color, rgba(255,255,255,.6));
   max-width: 70vw;
   text-align: center;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -368,18 +370,18 @@ body.hide-road #road-name { visibility: hidden; }
   font-size: var(--lyr-size);
   font-weight: var(--lyr-weight);
   line-height: 1.25;
-  color: rgba(255,255,255,.32);
+  color: var(--lyr-inactive, rgba(255,255,255,.32));
   filter: blur(calc(var(--d, 1) * 1.5px * var(--lyr-blur)));
   transform: scale(.94);
   transform-origin: var(--lyr-align) center;
   transition: color .5s var(--ease), filter .5s var(--ease), transform .5s var(--ease);
 }
 .lyr-line.active {
-  color: #fff;
+  color: var(--lyr-active, #fff);
   filter: blur(0);
   transform: scale(1);
 }
-body.lyr-glow .lyr-line.active { text-shadow: 0 0 22px rgba(255,255,255,.35); }
+body.lyr-glow .lyr-line.active { text-shadow: 0 0 calc(22px * var(--glow)) color-mix(in srgb, var(--lyr-active, #fff) 35%, transparent); }
 .lyr-line.gap { letter-spacing: .3em; }
 .lyr-line.gap.active { animation: gap-breathe 2.2s ease-in-out infinite; }
 @keyframes gap-breathe { 50% { opacity: .45; } }
@@ -420,7 +422,7 @@ body.lyr-glow .lyr-line.active { text-shadow: 0 0 22px rgba(255,255,255,.35); }
 
 #np-lyric-line {
   font-size: .92rem; font-weight: 600;
-  color: color-mix(in srgb, var(--accent) 80%, #fff);
+  color: var(--npline-color, color-mix(in srgb, var(--accent) 80%, #fff));
   min-height: 1.3em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   text-align: center;
@@ -579,6 +581,11 @@ body.np-compact #now-playing { padding: 8px 12px 7px; }
 .set-btn:active { background: rgba(255,255,255,.2); }
 .set-btn.danger { color: #ff6b78; }
 .set-btn.accent { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.set-btn.mini { padding: 5px 10px; font-size: .75rem; }
+.set-btn.sel { border-color: var(--accent); color: var(--accent); }
+
+.colorpick { display: flex; align-items: center; gap: 8px; }
+.colorpick input.is-auto { opacity: .35; }
 
 .preset-strip { display: flex; gap: 10px; overflow-x: auto; padding: 4px; }
 .preset-chip {

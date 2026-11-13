@@ -23,6 +23,18 @@ export const DEFAULTS = {
   blur: 28,                   // px
   glassOpacity: 1,            // 0.4..1.4
   grain: true,
+  // per-element colors; null = auto (follow theme / defaults)
+  colors: {
+    arc1: null, arc2: null,   // gauge gradient ends
+    speedNum: null,           // big speed number
+    lyricsActive: null, lyricsInactive: null,
+    npLyric: null,            // one-line lyric in the bar
+    blob1: null, blob2: null, blob3: null,
+    limitRing: null,          // limit sign ring
+    roadName: null,
+    glow: 1,                  // glow intensity 0..2
+    albumAccents: true,       // album cover may recolor the accents
+  },
   gauge: { style: 'arc', weight: 200, thickness: 14, ticks: true, unit: 'kmh', showRoad: true },
   limit: { size: 'm', pos: 'below', showUnknown: true },
   lyrics: { size: 'm', align: 'center', weight: 700, blur: 1, glow: true, offset: 0, showInTacho: true },
@@ -150,6 +162,25 @@ export class Settings {
     r.setProperty('--grain-opacity', d.grain ? 0.05 : 0);
     r.setProperty('--speed-weight', d.gauge.weight);
     r.setProperty('--gauge-thickness', d.gauge.thickness);
+    // per-element custom colors (null -> remove so the CSS fallback applies)
+    const c = d.colors;
+    const customVars = {
+      arc1: c.arc1, arc2: c.arc2, 'speed-color': c.speedNum,
+      'lyr-active': c.lyricsActive, 'lyr-inactive': c.lyricsInactive,
+      'npline-color': c.npLyric, 'limit-ring': c.limitRing, 'road-color': c.roadName,
+    };
+    for (const [k, v] of Object.entries(customVars)) {
+      if (v) r.setProperty('--' + k, v);
+      else r.removeProperty('--' + k);
+    }
+    // custom blobs win over theme/album (except pure black background)
+    if (d.bgMode !== 'black') {
+      for (const k of ['blob1', 'blob2', 'blob3']) {
+        if (c[k]) r.setProperty('--' + k, c[k]);
+      }
+    }
+    r.setProperty('--glow', c.glow);
+
     r.setProperty('--lyr-size', LYR_SIZES[d.lyrics.size] || LYR_SIZES.m);
     r.setProperty('--lyr-weight', d.lyrics.weight);
     r.setProperty('--lyr-blur', d.lyrics.blur);
@@ -236,6 +267,54 @@ function sliderRow(label, min, max, step, value, onSet) {
   s.addEventListener('input', () => onSet(parseFloat(s.value)));
   r.appendChild(s);
   return r;
+}
+
+// Color picker + "Auto" reset. value null = auto (theme decides).
+function colorRow(label, value, onSet) {
+  const r = row(label);
+  const wrap = el('div', 'colorpick');
+  const picker = document.createElement('input');
+  picker.type = 'color';
+  picker.value = value || '#ffffff';
+  picker.classList.toggle('is-auto', !value);
+  picker.addEventListener('input', () => {
+    picker.classList.remove('is-auto');
+    auto.classList.remove('sel');
+    onSet(picker.value);
+  });
+  const auto = el('button', 'set-btn mini' + (value ? '' : ' sel'), 'Auto');
+  auto.addEventListener('click', () => {
+    picker.classList.add('is-auto');
+    auto.classList.add('sel');
+    onSet(null);
+  });
+  wrap.appendChild(picker);
+  wrap.appendChild(auto);
+  r.appendChild(wrap);
+  return r;
+}
+
+// Random but harmonious theme: one hue, a shifted partner, dark blobs.
+function randomTheme() {
+  const h = Math.floor(Math.random() * 360);
+  const h2 = (h + 35 + Math.floor(Math.random() * 60)) % 360;
+  const h3 = (h + 180 + Math.floor(Math.random() * 40) - 20) % 360;
+  const hsl = (hh, s, l) => {
+    const a = s * Math.min(l, 1 - l);
+    const f = (n) => {
+      const k = (n + hh / 30) % 12;
+      const v = l - a * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+      return Math.round(v * 255).toString(16).padStart(2, '0');
+    };
+    return '#' + f(0) + f(8) + f(4);
+  };
+  return {
+    accent: hsl(h, 0.95, 0.66),
+    accent2: hsl(h2, 0.9, 0.68),
+    blob1: hsl(h, 0.7, 0.22),
+    blob2: hsl(h2, 0.65, 0.18),
+    blob3: hsl(h3, 0.6, 0.14),
+  };
 }
 
 function buttonRow(label, btnText, onClick, cls = '') {
@@ -344,9 +423,21 @@ export function buildSettingsSheet(container, ctx) {
   picker2.addEventListener('input', () => S('accent2', picker2.value));
   accent2Row.appendChild(picker2);
 
+  const diceRow = buttonRow('Zufallstheme', '🎲 Würfeln', () => {
+    const t = randomTheme();
+    st.set('accent', t.accent);
+    st.set('accent2', t.accent2);
+    st.set('colors.blob1', t.blob1);
+    st.set('colors.blob2', t.blob2);
+    st.set('colors.blob3', t.blob3);
+    st.applyAll();
+    buildSettingsSheet(container, ctx);
+  });
+
   container.appendChild(group('Farben',
     accentRow,
     accent2Row,
+    diceRow,
     selectRow('Hintergrund', [
       ['album', 'Album-Cover'], ['theme', 'Theme-Farben'],
       ['gradient', 'Statischer Verlauf'], ['black', 'Pures Schwarz'],
@@ -356,6 +447,27 @@ export function buildSettingsSheet(container, ctx) {
     sliderRow('Glas-Deckkraft', 0.4, 1.4, 0.05, st.get('glassOpacity'), (v) => S('glassOpacity', v)),
     toggleRow('Filmkorn', st.get('grain'), (v) => S('grain', v)),
   ));
+
+  // ----- Advanced per-element colors -----
+  const C = (key) => (v) => { S('colors.' + key, v); ctx.onReactChange(); };
+  const adv = group('Erweiterte Farben',
+    toggleRow('Album darf Akzente umfärben', st.get('colors.albumAccents'), C('albumAccents')),
+    sliderRow('Glow-Stärke', 0, 2, 0.1, st.get('colors.glow'), (v) => S('colors.glow', v)),
+    colorRow('Gauge-Verlauf Anfang', st.get('colors.arc1'), C('arc1')),
+    colorRow('Gauge-Verlauf Ende', st.get('colors.arc2'), C('arc2')),
+    colorRow('Tacho-Zahl', st.get('colors.speedNum'), C('speedNum')),
+    colorRow('Hintergrund-Blob 1', st.get('colors.blob1'), C('blob1')),
+    colorRow('Hintergrund-Blob 2', st.get('colors.blob2'), C('blob2')),
+    colorRow('Hintergrund-Blob 3', st.get('colors.blob3'), C('blob3')),
+    colorRow('Lyrics aktive Zeile', st.get('colors.lyricsActive'), C('lyricsActive')),
+    colorRow('Lyrics inaktive Zeilen', st.get('colors.lyricsInactive'), C('lyricsInactive')),
+    colorRow('Lyric-Zeile in der Leiste', st.get('colors.npLyric'), C('npLyric')),
+    colorRow('Schild-Ring', st.get('colors.limitRing'), C('limitRing')),
+    colorRow('Straßenname', st.get('colors.roadName'), C('roadName')),
+  );
+  adv.appendChild(el('p', 'set-note',
+    '„Auto" = Farbe folgt dem Theme bzw. dem Album-Cover. Eigene Blob-Farben werden nie vom Cover überschrieben.'));
+  container.appendChild(adv);
 
   // ----- Speedometer -----
   container.appendChild(group('Tacho',

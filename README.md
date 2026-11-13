@@ -8,7 +8,9 @@ Tacho, Tempolimit-Anzeige und Live-Lyrics fürs Auto — als Web-App fürs iPhon
 - **Tempolimit:** rundes Schild mit dem aktuellen Limit + Straßenname (Daten: OpenStreetMap).
 - **Tempowarnung:** roter Rand und optional Ton, wenn du zu schnell bist (Toleranz einstellbar).
 - **Spotify:** Cover, Titel, Steuerung und **live mitlaufende Lyrics** zum aktuellen Song.
-- **Design:** alles anpassbar (Farben, Themes, Größen) — die Farben passen sich dem Album-Cover und der Musik an.
+- **Design:** alles anpassbar — Themes, Presets und unter **„Erweiterte Farben"** jede einzelne Farbe
+  (Gauge, Tacho-Zahl, Blobs, Lyrics, Schild-Ring …) mit „Auto"-Rückfall aufs Theme, Glow-Regler und
+  🎲-Zufallstheme. Die Farben passen sich dem Album-Cover und der Musik an; eigene Farben bleiben fixiert.
 - **Demo-Modus:** zum Ausprobieren zu Hause, ohne GPS und ohne Spotify.
 
 > ⚠️ **Schilder an der Straße haben immer Vorrang.** Baustellen, temporäre Limits und

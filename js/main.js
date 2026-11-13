@@ -355,7 +355,7 @@ async function onTrack(track) {
   if (track.cover) {
     cover.src = track.cover;
     if (settings.get('react.palette') && settings.get('bgMode') === 'album') {
-      const apply = () => { applyAlbumPalette(cover); };
+      const apply = () => { applyAlbumPalette(cover, paletteLocks()); };
       if (cover.complete && cover.naturalWidth) apply();
       else cover.onload = apply;
     }
@@ -570,6 +570,16 @@ function setupSheet() {
   }, { passive: true });
 }
 
+// User-pinned colors the album palette must not touch.
+function paletteLocks() {
+  const c = settings.get('colors');
+  const noAccents = !c.albumAccents;
+  return {
+    accent: noAccents, accent2: noAccents,
+    blob1: !!c.blob1, blob2: !!c.blob2, blob3: !!c.blob3,
+  };
+}
+
 // ---------- reactivity modes ----------
 
 async function applyReactivity() {
@@ -594,7 +604,7 @@ async function applyReactivity() {
   // re-apply album palette if switching back to album mode
   if (settings.get('bgMode') === 'album' && settings.get('react.palette')) {
     const cover = $('np-cover');
-    if (cover.src && cover.complete && cover.naturalWidth) applyAlbumPalette(cover);
+    if (cover.src && cover.complete && cover.naturalWidth) applyAlbumPalette(cover, paletteLocks());
   }
 }
 
