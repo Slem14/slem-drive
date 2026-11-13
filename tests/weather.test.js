@@ -1,8 +1,16 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  codeToCondition, relativeWindAngle, windSideLabel, crosswindKmh,
+  codeToCondition, relativeWindAngle, windSideLabel, crosswindKmh, compassLabel,
 } from '../js/weather.js';
+
+test('compass labels for parked state', () => {
+  assert.equal(compassLabel(0), 'aus N');
+  assert.equal(compassLabel(90), 'aus O');
+  assert.equal(compassLabel(225), 'aus SW');
+  assert.equal(compassLabel(350), 'aus N');
+  assert.equal(compassLabel(null), '');
+});
 
 // ---------- WMO code mapping ----------
 

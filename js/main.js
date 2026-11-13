@@ -11,7 +11,7 @@ import {
 import { Settings, buildSettingsSheet } from './settings.js';
 import { DemoMode, DEMO_LRC } from './demo.js';
 import {
-  WeatherService, conditionEmoji, relativeWindAngle, windSideLabel,
+  WeatherService, conditionEmoji, relativeWindAngle, windSideLabel, compassLabel,
 } from './weather.js';
 import { WeatherFX } from './wx-fx.js';
 
@@ -182,6 +182,7 @@ function renderLimit(lim) {
   }
   sign.style.visibility = (lim.state === 'unknown' && !showUnknown) ? 'hidden' : 'visible';
   $('road-name').textContent = lim.roadName || '';
+  $('roadworks-badge').hidden = !lim.roadworks;
 
   sign.classList.remove('pop');
   void sign.offsetWidth; // restart animation
@@ -392,10 +393,18 @@ async function onTrack(track) {
   }
 }
 
+// `hidden` is an HTMLElement property — assigning it on an SVG element only
+// creates a JS expando and never sets the attribute the CSS matches on, so
+// the icons must be toggled through the attribute itself.
+function setHidden(el, hide) {
+  if (hide) el.setAttribute('hidden', '');
+  else el.removeAttribute('hidden');
+}
+
 function onPlayback(p) {
   state.playback = p;
-  $('ic-play').hidden = p.isPlaying;
-  $('ic-pause').hidden = !p.isPlaying;
+  setHidden($('ic-play'), p.isPlaying);
+  setHidden($('ic-pause'), !p.isPlaying);
 }
 
 // ---------- weather ----------
@@ -448,7 +457,10 @@ function updateWindRose() {
   const rel = relativeWindAngle(wx.windFromDeg, state.heading ?? 0);
   arrow.setAttribute('opacity', '1');
   arrow.style.transform = `rotate(${rel}deg)`;
-  $('wind-side').textContent = state.heading != null ? windSideLabel(rel) : '';
+  // relative side while driving, absolute compass direction while parked
+  $('wind-side').textContent = state.heading != null
+    ? windSideLabel(rel)
+    : compassLabel(wx.windFromDeg);
   weatherFX.setWind(rel, wx.windKmh); // rain/snow lean with the crosswind
 }
 

@@ -30,6 +30,9 @@
   <!-- Overspeed vignette -->
   <div id="vignette" aria-hidden="true"></div>
 
+  <!-- Night dimming veil -->
+  <div id="night-veil" aria-hidden="true"></div>
+
   <!-- Start screen -->
   <div id="start-screen">
     <div class="glass start-card">
@@ -69,10 +72,12 @@
           </div>
           <div id="wind-chip" class="glass wx-item">
             <svg id="wind-rose" viewBox="0 0 44 44" aria-hidden="true">
-              <circle cx="22" cy="22" r="20" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
-              <path d="M22 15 L26 28 L22 25.4 L18 28 Z" fill="rgba(255,255,255,.85)"/>
+              <circle cx="22" cy="22" r="19" fill="none" stroke="rgba(255,255,255,.16)" stroke-width="1.5"/>
+              <!-- the car, always pointing up = direction of travel -->
+              <path d="M22 15.5 L25.4 27 L22 24.6 L18.6 27 Z" fill="rgba(255,255,255,.8)"/>
+              <!-- where the wind comes from, rotated relative to the car -->
               <g id="wind-arrow" opacity="0">
-                <path d="M22 2.5 L25 9 L22 7.4 L19 9 Z" fill="var(--accent)"/>
+                <path d="M22 3.4 L25.8 11 L22 8.9 L18.2 11 Z" fill="var(--accent)"/>
               </g>
             </svg>
             <div id="wind-meta">
@@ -109,6 +114,7 @@
             <span id="limit-text">–</span>
           </div>
           <div id="road-name"></div>
+          <div id="roadworks-badge" hidden>⚠ Baustelle</div>
         </div>
       </section>
 

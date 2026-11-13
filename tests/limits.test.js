@@ -3,7 +3,13 @@ import assert from 'node:assert/strict';
 import {
   parseMaxspeedValue, limitForWay, pointSegDist, toLocalMeters,
   matchRoad, RoadStabilizer, segBearing, angleDiff, haversine,
+  parseConditional, isRoadworks,
 } from '../js/limits.js';
+
+// Fixed clocks for conditional-limit tests.
+const WED_23H = new Date(2026, 10, 11, 23, 30); // Wednesday 23:30
+const WED_12H = new Date(2026, 10, 11, 12, 0);  // Wednesday 12:00
+const SUN_12H = new Date(2026, 10, 15, 12, 0);  // Sunday 12:00
 
 // ---------- maxspeed parsing (all cases from the plan) ----------
 
@@ -71,6 +77,49 @@ test('untagged motorway is no-limit, other untagged roads unknown', () => {
   assert.equal(limitForWay({ highway: 'motorway' }, true).kind, 'none');
   assert.equal(limitForWay({ highway: 'residential' }, true).kind, 'unknown');
   assert.equal(limitForWay({ highway: 'living_street' }, true).kind, 'walk');
+});
+
+// ---------- conditional limits ----------
+
+test('night window active and inactive', () => {
+  const cond = '30 @ (22:00-06:00)';
+  assert.deepEqual(parseConditional(cond, WED_23H), { kind: 'limit', kmh: 30 });
+  assert.equal(parseConditional(cond, WED_12H), null);
+});
+
+test('weekday window respects the day', () => {
+  const cond = '60 @ (Mo-Fr 07:00-17:00)';
+  assert.deepEqual(parseConditional(cond, WED_12H), { kind: 'limit', kmh: 60 });
+  assert.equal(parseConditional(cond, SUN_12H), null, 'must not apply on Sunday');
+});
+
+test('non-time conditions are ignored, never guessed', () => {
+  assert.equal(parseConditional('100 @ wet', WED_12H), null);
+  assert.equal(parseConditional('nonsense', WED_12H), null);
+  assert.equal(parseConditional(null, WED_12H), null);
+});
+
+test('conditional limit overrides the plain maxspeed while active', () => {
+  const tags = { highway: 'residential', maxspeed: '50', 'maxspeed:conditional': '30 @ (22:00-06:00)' };
+  assert.deepEqual(limitForWay(tags, true, WED_23H), { kind: 'limit', kmh: 30 });
+  assert.deepEqual(limitForWay(tags, true, WED_12H), { kind: 'limit', kmh: 50 });
+});
+
+test('direction-specific conditional limits', () => {
+  const tags = {
+    highway: 'primary', maxspeed: '100',
+    'maxspeed:forward:conditional': '80 @ (06:00-20:00)',
+  };
+  assert.deepEqual(limitForWay(tags, true, WED_12H), { kind: 'limit', kmh: 80 });
+  assert.deepEqual(limitForWay(tags, false, WED_12H), { kind: 'limit', kmh: 100 });
+});
+
+// ---------- roadworks ----------
+
+test('roadworks detection', () => {
+  assert.equal(isRoadworks({ highway: 'construction' }), true);
+  assert.equal(isRoadworks({ highway: 'motorway', construction: 'widening' }), true);
+  assert.equal(isRoadworks({ highway: 'motorway' }), false);
 });
 
 // ---------- geometry ----------

@@ -43,6 +43,7 @@ export class SpotifyService {
     this.lastTrackId = null;
     this.polling = false;
     this.isPlaying = false;
+    this.lastPlayback = null;   // last known playback, for optimistic updates
     this.rateLimitedUntil = 0;
   }
 
@@ -180,7 +181,12 @@ export class SpotifyService {
     }
     if (res.status === 403) {
       this.toast('Dafür wird Spotify Premium benötigt.');
-      return null;
+      return { failed: true };
+    }
+    if (res.status === 404) {
+      // no active device — Spotify needs a device that is currently playing
+      this.toast('Kein aktives Spotify-Gerät. Song in der Spotify-App kurz starten.');
+      return { failed: true };
     }
     if (res.status === 429) {
       const retry = parseInt(res.headers.get('Retry-After') || '5', 10);
@@ -216,13 +222,20 @@ export class SpotifyService {
     const data = await this.api('/me/player/currently-playing');
     const mid = (t0 + Date.now()) / 2; // fetch midpoint for interpolation
 
+    if (data && data.failed) {
+      // a rejected request says nothing about playback — keep what we show
+      this.schedule(3000);
+      return;
+    }
+
     if (!data || data.empty || !data.item) {
       this.isPlaying = false;
       if (this.lastTrackId !== null) {
         this.lastTrackId = null;
         if (this.onTrack) this.onTrack(null);
       }
-      if (this.onPlayback) this.onPlayback({ isPlaying: false, progressMs: 0, fetchedAt: mid, durationMs: 0 });
+      this.lastPlayback = { isPlaying: false, progressMs: 0, fetchedAt: mid, durationMs: 0 };
+      if (this.onPlayback) this.onPlayback(this.lastPlayback);
       this.schedule(3000);
       return;
     }
@@ -243,14 +256,13 @@ export class SpotifyService {
         });
       }
     }
-    if (this.onPlayback) {
-      this.onPlayback({
-        isPlaying: this.isPlaying,
-        progressMs: data.progress_ms || 0,
-        fetchedAt: mid,
-        durationMs: item.duration_ms,
-      });
-    }
+    this.lastPlayback = {
+      isPlaying: this.isPlaying,
+      progressMs: data.progress_ms || 0,
+      fetchedAt: mid,
+      durationMs: item.duration_ms,
+    };
+    if (this.onPlayback) this.onPlayback(this.lastPlayback);
     this.schedule(this.isPlaying ? 1000 : 3000);
   }
 
@@ -265,11 +277,37 @@ export class SpotifyService {
       prev: ['/me/player/previous', 'POST'],
     };
     const [path, method] = map[action];
-    await this.api(path, { method });
-    setTimeout(() => this.pollOnce(), 300);
+    const res = await this.api(path, { method });
+
+    if (res && res.failed) {
+      // command rejected: undo the optimistic UI so the icon tells the truth
+      this.pollOnce();
+      return;
+    }
+
+    // Spotify's state is eventually consistent — a single poll 300 ms later
+    // often still reports the old is_playing. Poll a few times instead.
+    for (const ms of [350, 1000, 2200]) setTimeout(() => this.pollOnce(), ms);
   }
 
-  togglePlay() { this.control(this.isPlaying ? 'pause' : 'play'); }
+  togglePlay() {
+    const wantPlaying = !this.isPlaying;
+    // optimistic: flip locally right away so the button feels instant
+    this.isPlaying = wantPlaying;
+    const p = this.lastPlayback;
+    if (this.onPlayback && p) {
+      // carry the interpolated position over so the progress bar doesn't jump
+      const elapsed = p.isPlaying ? Date.now() - p.fetchedAt : 0;
+      this.lastPlayback = {
+        ...p,
+        isPlaying: wantPlaying,
+        progressMs: Math.min(p.progressMs + elapsed, p.durationMs || Infinity),
+        fetchedAt: Date.now(),
+      };
+      this.onPlayback(this.lastPlayback);
+    }
+    this.control(wantPlaying ? 'play' : 'pause');
+  }
 
   toast(msg) { if (this.onToast) this.onToast(msg); }
 }

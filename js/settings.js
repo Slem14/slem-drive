@@ -597,8 +597,10 @@ export function buildSettingsSheet(container, ctx) {
   const about = el('div', 'set-group');
   about.appendChild(el('h3', null, 'Info'));
   about.appendChild(el('p', 'set-note',
-    'Tempolimits: © OpenStreetMap-Mitwirkende (Overpass API). Lyrics: LRCLIB. ' +
-    'Wichtig: Schilder an der Straße haben immer Vorrang — Baustellen, temporäre Limits und elektronische Anzeigen fehlen in den Kartendaten. ' +
+    'Tempolimits: © OpenStreetMap-Mitwirkende (Overpass API), live beim Fahren abgefragt — also immer der aktuelle Kartenstand. ' +
+    'Längere Baustellen und zeitabhängige Limits (z. B. „nachts 30") werden erkannt, sobald sie in der Karte eingetragen sind. ' +
+    'Wichtig: Schilder an der Straße haben trotzdem immer Vorrang — ganz frische Baustellen und elektronische Anzeigen über der Autobahn stehen nicht in der Karte. ' +
+    'Wetter: Open-Meteo. Lyrics: LRCLIB. ' +
     'GPS zeigt die echte Geschwindigkeit; der Auto-Tacho geht meist ein paar km/h vor.'));
   container.appendChild(about);
 }

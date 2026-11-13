@@ -12,7 +12,8 @@ const REFETCH_DIST = 350;        // m from last fetch center
 const MIN_FETCH_INTERVAL = 4000; // ms
 const ERROR_BACKOFF = 15000;     // ms
 
-const HIGHWAY_RE = '^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|road)$';
+// `construction` is included so roadworks stretches are matched too.
+const HIGHWAY_RE = '^(motorway|trunk|primary|secondary|tertiary|unclassified|residential|living_street|motorway_link|trunk_link|primary_link|secondary_link|tertiary_link|road|construction)$';
 
 // ---------- maxspeed parsing ----------
 
@@ -50,9 +51,75 @@ export function parseMaxspeedValue(raw) {
   return { kind: 'unknown' };
 }
 
+// ---------- conditional limits (time windows) ----------
+
+// Parse OSM `maxspeed:conditional`, e.g.
+//   "30 @ (22:00-06:00)"  |  "60 @ (Mo-Fr 07:00-17:00)"  |  "100 @ wet"
+// Only time/day windows are evaluated; weather-based ones ("wet") are
+// skipped because we must not guess the road surface.
+// `now` is injectable for tests.
+export function parseConditional(raw, now = new Date()) {
+  if (!raw) return null;
+  for (const part of String(raw).split(';')) {
+    const m = part.match(/^\s*([^@]+?)\s*@\s*\((.+)\)\s*$/);
+    if (!m) continue;
+    const value = parseMaxspeedValue(m[1]);
+    if (value.kind === 'unknown') continue;
+    if (conditionActive(m[2], now)) return value;
+  }
+  return null;
+}
+
+const DAY_IDX = { su: 0, mo: 1, tu: 2, we: 3, th: 4, fr: 5, sa: 6 };
+
+function conditionActive(cond, now) {
+  const text = cond.trim().toLowerCase();
+  // day restriction, e.g. "mo-fr 07:00-17:00" or "sa,su 10:00-20:00"
+  const dayMatch = text.match(/^((?:mo|tu|we|th|fr|sa|su)(?:\s*[-,]\s*(?:mo|tu|we|th|fr|sa|su))*)\s+(.*)$/);
+  let timePart = text;
+  if (dayMatch) {
+    if (!dayActive(dayMatch[1], now.getDay())) return false;
+    timePart = dayMatch[2];
+  }
+  const t = timePart.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (!t) return false; // not a time window we understand -> ignore
+  const mins = now.getHours() * 60 + now.getMinutes();
+  const from = +t[1] * 60 + +t[2];
+  const to = +t[3] * 60 + +t[4];
+  return from <= to ? (mins >= from && mins < to) : (mins >= from || mins < to);
+}
+
+function dayActive(spec, today) {
+  for (const chunk of spec.split(',')) {
+    const range = chunk.trim().split('-').map((d) => DAY_IDX[d.trim()]);
+    if (range.some((d) => d === undefined)) continue;
+    if (range.length === 1 && range[0] === today) return true;
+    if (range.length === 2) {
+      const [a, b] = range;
+      if (a <= b ? (today >= a && today <= b) : (today >= a || today <= b)) return true;
+    }
+  }
+  return false;
+}
+
+// True when the way is tagged as roadworks / under construction.
+export function isRoadworks(tags) {
+  return tags.highway === 'construction' ||
+    tags.construction != null ||
+    tags.roadworks != null;
+}
+
 // Resolve the effective limit for a way, given travel direction.
 // forward = true when travelling in way-node order.
-export function limitForWay(tags, forward = true) {
+export function limitForWay(tags, forward = true, now = new Date()) {
+  // time-based limits win when their window is currently active
+  const cond = parseConditional(
+    (forward ? tags['maxspeed:forward:conditional'] : tags['maxspeed:backward:conditional'])
+      || tags['maxspeed:conditional'],
+    now,
+  );
+  if (cond) return cond;
+
   const dir = forward ? tags['maxspeed:forward'] : tags['maxspeed:backward'];
   let r = parseMaxspeedValue(dir);
   if (r.kind !== 'unknown') return r;
@@ -232,13 +299,15 @@ export class LimitService {
           state: lim.kind,
           kmh: lim.kmh,
           roadName: way.tags.name || way.tags.ref || '',
+          roadworks: isRoadworks(way.tags),
         };
       }
     }
 
     const changed = result.state !== this.lastResult.state ||
       result.kmh !== this.lastResult.kmh ||
-      result.roadName !== this.lastResult.roadName;
+      result.roadName !== this.lastResult.roadName ||
+      result.roadworks !== this.lastResult.roadworks;
     this.lastResult = result;
     if (changed && this.onUpdate) this.onUpdate(result);
     return result;
@@ -263,6 +332,7 @@ export class LimitService {
       const res = await fetch(MIRRORS[this.mirror], {
         method: 'POST',
         body: 'data=' + encodeURIComponent(query),
+        cache: 'no-store', // always live map data, never a cached copy
       });
       if (!res.ok) throw new Error('overpass ' + res.status);
       const json = await res.json();

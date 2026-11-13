@@ -55,6 +55,14 @@ export function windSideLabel(relDeg) {
   return sectors[Math.round(relDeg / 45) % 8];
 }
 
+// German compass label for an absolute direction — used while parked, when
+// there is no heading to be relative to.
+export function compassLabel(deg) {
+  if (deg == null) return '';
+  const points = ['N', 'NO', 'O', 'SO', 'S', 'SW', 'W', 'NW'];
+  return 'aus ' + points[Math.round(((deg % 360) + 360) % 360 / 45) % 8];
+}
+
 // Crosswind component in km/h — what actually pushes the car sideways.
 export function crosswindKmh(windKmh, relDeg) {
   if (relDeg == null) return windKmh;

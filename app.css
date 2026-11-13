@@ -47,7 +47,21 @@ html, body {
   -webkit-user-select: none;
   overscroll-behavior: none;
   touch-action: manipulation;
-  filter: brightness(var(--night-dim));
+  /* No filter/transform/backdrop-filter on html or body: any of them would
+     become the containing block for position:fixed children, which shrinks
+     them to the body box and leaves the safe areas unpainted. Night dimming
+     is done with #night-veil instead. */
+}
+
+/* Night dimming: a veil instead of a brightness filter (see above). */
+#night-veil {
+  position: fixed;
+  inset: -2px;
+  z-index: 65; /* above the app and the settings sheet, below toasts */
+  background: #000;
+  opacity: calc(1 - var(--night-dim));
+  pointer-events: none;
+  transition: opacity 1.2s var(--ease);
 }
 
 button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
@@ -57,10 +71,12 @@ img { display: block; }
 /* ---------- Background blobs + grain ---------- */
 
 #bg {
-  position: fixed; inset: 0; z-index: 0;
+  position: fixed;
+  /* bleed past the viewport so rotation/URL-bar changes never expose a seam */
+  inset: -2px;
+  z-index: 0;
   overflow: hidden;
   background: var(--bg-base);
-  transform: translateZ(0);
 }
 .blob {
   position: absolute;
@@ -364,7 +380,7 @@ body[data-gauge="minimal"] #gauge-ticks text { display: none; }
 #wx-icon { font-size: 1rem; line-height: 1; }
 #wx-feels { font-size: .68rem; font-weight: 500; color: rgba(255,255,255,.5); }
 
-#wind-rose { width: 34px; height: 34px; flex: 0 0 auto; }
+#wind-rose { width: 38px; height: 38px; flex: 0 0 auto; }
 #wind-arrow { transition: transform .8s var(--ease), opacity .4s; transform-origin: 22px 22px; }
 #wind-meta { display: flex; flex-direction: column; line-height: 1.15; }
 #wind-kmh { font-size: .85rem; }
@@ -393,6 +409,8 @@ body[data-limit-pos="corner"] #limit-block {
 
 #limit-sign {
   --limit-size: 84px;
+  --sign-scale: 1;   /* base scale; the pop animation multiplies it */
+  transform: scale(var(--sign-scale));
   width: var(--limit-size); height: var(--limit-size);
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -405,7 +423,11 @@ body[data-limit-size="s"] #limit-sign { --limit-size: 64px; }
 body[data-limit-size="l"] #limit-sign { --limit-size: 106px; }
 
 #limit-sign.pop { animation: limit-pop .45s var(--ease); }
-@keyframes limit-pop { 0% { transform: scale(.7); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes limit-pop {
+  0%   { transform: scale(calc(var(--sign-scale) * .7)); }
+  60%  { transform: scale(calc(var(--sign-scale) * 1.12)); }
+  100% { transform: scale(var(--sign-scale)); }
+}
 
 #limit-text {
   color: #111;
@@ -424,13 +446,15 @@ body[data-limit-size="l"] #limit-sign { --limit-size: 106px; }
 }
 #limit-sign.limit-none #limit-text { display: none; }
 
-/* unknown / variable: dim glass circle */
+/* unknown / variable: dim glass circle, visually lighter than a real sign */
 #limit-sign.limit-unknown, #limit-sign.limit-variable {
-  background: rgba(255,255,255,.07);
-  border-color: rgba(255,255,255,.2);
+  background: rgba(255,255,255,.05);
+  border-width: 2px;
+  border-color: rgba(255,255,255,.16);
   box-shadow: none;
   -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
+  --sign-scale: .82;
 }
 #limit-sign.limit-unknown #limit-text, #limit-sign.limit-variable #limit-text {
   color: rgba(255,255,255,.5);
@@ -446,6 +470,17 @@ body[data-limit-size="l"] #limit-sign { --limit-size: 106px; }
   min-height: 1.2em;
 }
 body.hide-road #road-name { visibility: hidden; }
+
+#roadworks-badge {
+  font-size: .68rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .12em;
+  color: #ffc24b;
+  background: rgba(255, 194, 75, .12);
+  border: 1px solid rgba(255, 194, 75, .35);
+  border-radius: 999px;
+  padding: 4px 10px;
+  margin-top: 2px;
+}
 
 /* ---------- Lyrics view ---------- */
 
