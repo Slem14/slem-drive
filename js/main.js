@@ -773,6 +773,22 @@ async function boot() {
   $('btn-start').addEventListener('click', () => start(false));
   $('btn-demo').addEventListener('click', () => start(true));
 
+  // Register the service worker next, before anything else can throw: it is
+  // what pulls in a newer build, so it has to run even if the rest of boot
+  // fails. On activation the page reloads once onto the fresh files.
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (!e.data || e.data.type !== 'sw-activated') return;
+      const key = 'slemdrive.reloadedFor';
+      try {
+        if (sessionStorage.getItem(key) === e.data.version) return; // already did
+        sessionStorage.setItem(key, e.data.version);
+      } catch { return; } // no sessionStorage: skip rather than risk a loop
+      if (!state.started) location.reload(); // never yank the screen mid-drive
+    });
+    navigator.serviceWorker.register('sw.js').catch(() => { /* offline shell unavailable */ });
+  }
+
   settings.applyAll();
   settings.onChange(() => { /* applied by UI already */ });
 
@@ -838,21 +854,6 @@ async function boot() {
 
   // OSM attribution lives in Einstellungen → Info (the data licence requires
   // credit, but it does not have to sit on the driving screen).
-
-  // service worker: reload once when a new version takes over, so the page
-  // never keeps running scripts from the previous build
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.addEventListener('message', (e) => {
-      if (!e.data || e.data.type !== 'sw-activated') return;
-      const key = 'slemdrive.reloadedFor';
-      try {
-        if (sessionStorage.getItem(key) === e.data.version) return; // already did
-        sessionStorage.setItem(key, e.data.version);
-      } catch { return; } // no sessionStorage: skip rather than risk a loop
-      if (!state.started) location.reload(); // never yank the screen mid-drive
-    });
-    navigator.serviceWorker.register('sw.js').catch(() => { /* offline shell unavailable */ });
-  }
 
   applyReactivity();
   requestAnimationFrame(frame);
