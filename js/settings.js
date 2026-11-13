@@ -4,6 +4,10 @@
 const LS_KEY = 'slemdrive.settings.v1';
 const LS_PRESETS = 'slemdrive.presets.v1';
 
+// Shown in Einstellungen → Info so the running build can be identified.
+// Keep in step with VERSION in sw.js.
+export const APP_VERSION = 'v8';
+
 export const BUILTIN_PRESETS = {
   ember:  { name: 'Ember',  accent: '#ff5e62', accent2: '#ffb347', blob1: '#7a1626', blob2: '#8a3b12', blob3: '#3c0f1e' },
   ice:    { name: 'Ice',    accent: '#8fd8ff', accent2: '#b18cff', blob1: '#1d5f8a', blob2: '#4b2e83', blob3: '#0e3a46' },
@@ -599,6 +603,18 @@ export function buildSettingsSheet(container, ctx) {
   // ----- About -----
   const about = el('div', 'set-group');
   about.appendChild(el('h3', null, 'Info'));
+  const verRows = el('div', 'set-rows');
+  const verRow = row('App-Version');
+  verRow.appendChild(el('span', null, APP_VERSION));
+  verRows.appendChild(verRow);
+  verRows.appendChild(buttonRow('App neu laden (holt Updates)', 'Neu laden', async () => {
+    try {
+      for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+      for (const k of await caches.keys()) await caches.delete(k);
+    } catch { /* nothing cached */ }
+    location.reload();
+  }));
+  about.appendChild(verRows);
   about.appendChild(el('p', 'set-note',
     'Der Punkt oben links zeigt den GPS-Empfang: grün = genau, gelb = ungenau, rot = kein Signal (z. B. im Tunnel). Bei Rot bleibt das zuletzt erkannte Tempolimit stehen, wird aber abgedunkelt.'));
   about.appendChild(el('p', 'set-note',

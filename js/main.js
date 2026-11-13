@@ -446,6 +446,7 @@ function renderWeather(wx) {
 function updateWindRose() {
   const wx = state.wx;
   const flow = $('wind-flow');
+  if (!flow) return;
   if (!wx || wx.windFromDeg == null) { flow.setAttribute('opacity', '0'); return; }
   const rel = relativeWindAngle(wx.windFromDeg, state.heading ?? 0);
   flow.setAttribute('opacity', '1');
@@ -766,6 +767,12 @@ async function start(demo = false) {
 // ---------- boot ----------
 
 async function boot() {
+  // Wire the start buttons FIRST. Everything below can touch storage, the
+  // network or optional DOM, and if any of it throws the user must still be
+  // able to start the app rather than face a dead "Losfahren" button.
+  $('btn-start').addEventListener('click', () => start(false));
+  $('btn-demo').addEventListener('click', () => start(true));
+
   settings.applyAll();
   settings.onChange(() => { /* applied by UI already */ });
 
@@ -790,9 +797,6 @@ async function boot() {
       redirect.code,
     );
   }
-
-  $('btn-start').addEventListener('click', () => start(false));
-  $('btn-demo').addEventListener('click', () => start(true));
 
   // tapping the bar while not connected jumps straight to the Spotify setup
   $('np-meta').addEventListener('click', () => {
@@ -835,8 +839,18 @@ async function boot() {
   // OSM attribution lives in Einstellungen → Info (the data licence requires
   // credit, but it does not have to sit on the driving screen).
 
-  // service worker
+  // service worker: reload once when a new version takes over, so the page
+  // never keeps running scripts from the previous build
   if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.addEventListener('message', (e) => {
+      if (!e.data || e.data.type !== 'sw-activated') return;
+      const key = 'slemdrive.reloadedFor';
+      try {
+        if (sessionStorage.getItem(key) === e.data.version) return; // already did
+        sessionStorage.setItem(key, e.data.version);
+      } catch { return; } // no sessionStorage: skip rather than risk a loop
+      if (!state.started) location.reload(); // never yank the screen mid-drive
+    });
     navigator.serviceWorker.register('sw.js').catch(() => { /* offline shell unavailable */ });
   }
 

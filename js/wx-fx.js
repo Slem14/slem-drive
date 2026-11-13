@@ -9,7 +9,17 @@ function rand(a, b) { return a + Math.random() * (b - a); }
 export class WeatherFX {
   constructor(canvas) {
     this.canvas = canvas;
-    this.ctx = canvas.getContext('2d');
+    // Degrade to a no-op rather than throwing: this is decoration, and a
+    // failure here must never take the whole app down with it.
+    this.ctx = canvas && canvas.getContext ? canvas.getContext('2d') : null;
+    if (!this.ctx) {
+      this.set = () => {};
+      this.setWind = () => {};
+      this.start = () => {};
+      this.stop = () => {};
+      this.resize = () => {};
+      return;
+    }
     this.condition = null;
     this.isDay = true;
     this.windSlant = 0;        // -1..1, negative = streaks lean left
