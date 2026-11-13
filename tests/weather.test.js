@@ -2,7 +2,57 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   codeToCondition, relativeWindAngle, windSideLabel, crosswindKmh, compassLabel,
+  isDayFromSunTimes, currentIsDay, localIsoMinutes,
 } from '../js/weather.js';
+
+// ---------- day / night ----------
+
+test('evening in November is night, not day', () => {
+  // the exact case seen on the phone: 20:45 local, sunset 16:25
+  assert.equal(
+    isDayFromSunTimes('2026-11-13T20:45', '2026-11-13T07:22', '2026-11-13T16:25'),
+    false,
+  );
+});
+
+test('midday is day', () => {
+  assert.equal(
+    isDayFromSunTimes('2026-11-13T12:00', '2026-11-13T07:22', '2026-11-13T16:25'),
+    true,
+  );
+});
+
+test('boundaries: sunrise counts as day, sunset as night', () => {
+  const up = '2026-11-13T07:22', down = '2026-11-13T16:25';
+  assert.equal(isDayFromSunTimes('2026-11-13T07:22', up, down), true);
+  assert.equal(isDayFromSunTimes('2026-11-13T07:21', up, down), false);
+  assert.equal(isDayFromSunTimes('2026-11-13T16:25', up, down), false);
+  assert.equal(isDayFromSunTimes('2026-11-13T16:24', up, down), true);
+});
+
+test('sun times from another day are not trusted', () => {
+  assert.equal(
+    isDayFromSunTimes('2026-11-14T01:00', '2026-11-13T07:22', '2026-11-13T16:25'),
+    null,
+  );
+  assert.equal(isDayFromSunTimes('2026-11-13T12:00', null, null), null);
+});
+
+test('currentIsDay recomputes from the clock, overriding a stale flag', () => {
+  const data = { isDay: true, sunrise: '2026-11-13T07:22', sunset: '2026-11-13T16:25' };
+  // cached at midday said "day", but it is 20:45 now -> night wins
+  assert.equal(currentIsDay(data, new Date(2026, 10, 13, 20, 45)), false);
+  assert.equal(currentIsDay(data, new Date(2026, 10, 13, 12, 0)), true);
+});
+
+test('currentIsDay falls back to the stored flag without sun times', () => {
+  assert.equal(currentIsDay({ isDay: false }, new Date(2026, 10, 13, 12, 0)), false);
+  assert.equal(currentIsDay({ isDay: true }, new Date(2026, 10, 13, 12, 0)), true);
+});
+
+test('localIsoMinutes formats local time zero-padded', () => {
+  assert.equal(localIsoMinutes(new Date(2026, 10, 3, 9, 5)), '2026-11-03T09:05');
+});
 
 test('compass labels for parked state', () => {
   assert.equal(compassLabel(0), 'aus N');

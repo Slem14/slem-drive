@@ -515,10 +515,13 @@ export function buildSettingsSheet(container, ctx) {
   const wxGroup = group('Wetter',
     toggleRow('Wetter anzeigen', st.get('weather.enabled'), (v) => { S('weather.enabled', v); ctx.onWeatherChange?.(); }),
     toggleRow('Wetter-Stimmung im Hintergrund', st.get('weather.effects'), (v) => { S('weather.effects', v); ctx.onWeatherChange?.(); }),
-    sliderRow('Wind-Warnung ab (km/h)', 40, 120, 5, st.get('weather.warnKmh'), (v) => S('weather.warnKmh', v)),
+    sliderRow('Seitenwind-Warnung ab (km/h)', 40, 120, 5, st.get('weather.warnKmh'), (v) => S('weather.warnKmh', v)),
   );
   wxGroup.appendChild(el('p', 'set-note',
-    'Außentemperatur, gefühlte Temperatur und Wind relativ zur Fahrtrichtung (Daten: Open-Meteo). Eine Innenraum-Temperatur kann das iPhone leider nicht messen.'));
+    'Außentemperatur, gefühlte Temperatur und Wind relativ zur Fahrtrichtung (Daten: Open-Meteo). ' +
+    'Der Pfeil sitzt auf der Seite, aus der der Wind kommt, und zeigt dorthin, wohin er das Auto drückt. ' +
+    'Gewarnt wird beim Seitenwind-Anteil der Böen — Gegenwind bremst nur, Seitenwind drückt. ' +
+    'Eine Innenraum-Temperatur kann das iPhone leider nicht messen.'));
   container.appendChild(wxGroup);
 
   // ----- Layout -----

@@ -1,6 +1,6 @@
 // App-shell cache, stale-while-revalidate.
 // Bump VERSION on every deploy so clients pick up new files.
-const VERSION = 'v5';
+const VERSION = 'v6';
 const CACHE = 'slem-drive-' + VERSION;
 
 const SHELL = [

@@ -4,7 +4,7 @@
 const API = 'https://api.open-meteo.com/v1/forecast';
 const REFETCH_MS = 10 * 60 * 1000;  // 10 min
 const REFETCH_DIST_M = 5000;        // or when moved > 5 km
-const LS_KEY = 'slemdrive.weather.v1';
+const LS_KEY = 'slemdrive.weather.v2'; // v2: adds sun times, drops older cached entries
 
 // ---------- WMO weather code -> condition bucket ----------
 
@@ -20,6 +20,35 @@ export function codeToCondition(code) {
   if (code === 85 || code === 86) return 'snow';
   if (code >= 95) return 'storm';
   return 'cloudy';
+}
+
+// Day/night from the actual sun times rather than a single flag.
+// All three are local naive ISO strings from the same API response
+// ("2026-11-13T20:45"), so a lexicographic compare is correct.
+// Returns null when the inputs can't be compared, so the caller can
+// fall back to the API's is_day.
+export function isDayFromSunTimes(currentTime, sunrise, sunset) {
+  if (!currentTime || !sunrise || !sunset) return null;
+  const t = String(currentTime).slice(0, 16);
+  const up = String(sunrise).slice(0, 16);
+  const down = String(sunset).slice(0, 16);
+  if (t.slice(0, 10) !== up.slice(0, 10)) return null; // sun times are for another day
+  return t >= up && t < down;
+}
+
+// Local naive ISO ("2026-11-13T20:45") for comparing against sun times.
+export function localIsoMinutes(now = new Date()) {
+  const p = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${p(now.getMonth() + 1)}-${p(now.getDate())}` +
+    `T${p(now.getHours())}:${p(now.getMinutes())}`;
+}
+
+// Day/night for right now, so dusk flips the icon without waiting for a
+// refetch. Falls back to whatever the last fetch reported.
+export function currentIsDay(data, now = new Date()) {
+  if (!data) return true;
+  const bySun = isDayFromSunTimes(localIsoMinutes(now), data.sunrise, data.sunset);
+  return bySun != null ? bySun : !!data.isDay;
 }
 
 export function conditionEmoji(condition, isDay) {
@@ -102,22 +131,29 @@ export class WeatherService {
         latitude: fix.lat.toFixed(4),
         longitude: fix.lon.toFixed(4),
         current: 'temperature_2m,apparent_temperature,weather_code,is_day,wind_speed_10m,wind_gusts_10m,wind_direction_10m',
+        daily: 'sunrise,sunset',
+        forecast_days: '1',
         wind_speed_unit: 'kmh',
         timezone: 'auto',
       });
-      const res = await fetch(`${API}?${params}`);
+      const res = await fetch(`${API}?${params}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('open-meteo ' + res.status);
       const json = await res.json();
       const c = json.current;
+      const d = json.daily || {};
+      // sun times are authoritative; is_day is the fallback
+      const bySun = isDayFromSunTimes(c.time, (d.sunrise || [])[0], (d.sunset || [])[0]);
       this.data = {
         at: Date.now(),
         tempC: Math.round(c.temperature_2m),
         feelsC: Math.round(c.apparent_temperature),
         condition: codeToCondition(c.weather_code),
-        isDay: !!c.is_day,
+        isDay: bySun != null ? bySun : !!c.is_day,
         windKmh: Math.round(c.wind_speed_10m),
         gustKmh: Math.round(c.wind_gusts_10m),
         windFromDeg: c.wind_direction_10m,
+        sunrise: (d.sunrise || [])[0] || null,
+        sunset: (d.sunset || [])[0] || null,
       };
       this.lastPos = { lat: fix.lat, lon: fix.lon };
       try { localStorage.setItem(LS_KEY, JSON.stringify(this.data)); } catch { /* full */ }

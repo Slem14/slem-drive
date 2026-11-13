@@ -12,6 +12,7 @@ import { Settings, buildSettingsSheet } from './settings.js';
 import { DemoMode, DEMO_LRC } from './demo.js';
 import {
   WeatherService, conditionEmoji, relativeWindAngle, windSideLabel, compassLabel,
+  currentIsDay, crosswindKmh,
 } from './weather.js';
 import { WeatherFX } from './wx-fx.js';
 
@@ -424,28 +425,25 @@ function renderWeather(wx) {
     return;
   }
 
-  // background mood
+  // background mood — day/night from the sun times for the current moment
+  const isDay = state.demo ? wx.isDay : currentIsDay(wx);
   body.dataset.wx = wx.condition;
-  body.dataset.daynight = wx.isDay ? 'day' : 'night';
+  body.dataset.daynight = isDay ? 'day' : 'night';
   if (settings.get('weather.effects')) {
     weatherFX.setWind(relativeWindAngle(wx.windFromDeg, state.heading ?? 0), wx.windKmh);
-    weatherFX.set(wx.condition, wx.isDay);
+    weatherFX.set(wx.condition, isDay);
   } else {
     weatherFX.stop();
     weatherFX.condition = null;
   }
 
   // temperature chip ("in-car" temp isn't readable on iPhones; feels-like instead)
-  $('wx-icon').textContent = conditionEmoji(wx.condition, wx.isDay);
+  $('wx-icon').textContent = conditionEmoji(wx.condition, isDay);
   $('wx-temp').textContent = `${wx.tempC}°`;
   $('wx-feels').textContent = wx.feelsC !== wx.tempC ? `gefühlt ${wx.feelsC}°` : '';
 
   $('wind-kmh').textContent = wx.windKmh;
   updateWindRose();
-
-  // strong-wind warning, same alarm language as overspeed
-  const warn = Math.max(wx.windKmh, wx.gustKmh || 0) >= settings.get('weather.warnKmh');
-  $('wind-chip').classList.toggle('warn', warn);
 }
 
 // Rotate the wind arrow to where the wind comes from, relative to the
@@ -462,6 +460,18 @@ function updateWindRose() {
     ? windSideLabel(rel)
     : compassLabel(wx.windFromDeg);
   weatherFX.setWind(rel, wx.windKmh); // rain/snow lean with the crosswind
+  updateWindWarning(rel);
+}
+
+// Warn on the sideways component — a headwind just slows you down, a
+// crosswind is what actually pushes the car. Gusts matter more than the
+// average, so warn on those. Parked (no heading): use the raw gust.
+function updateWindWarning(rel) {
+  const wx = state.wx;
+  if (!wx) return;
+  const gust = Math.max(wx.windKmh, wx.gustKmh || 0);
+  const effective = rel != null ? crosswindKmh(gust, rel) : gust;
+  $('wind-chip').classList.toggle('warn', effective >= settings.get('weather.warnKmh'));
 }
 
 // ---------- GPS wiring ----------
