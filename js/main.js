@@ -348,8 +348,8 @@ async function onTrack(track) {
   $('np-lyric-line').textContent = '';
 
   if (!track) {
-    $('np-title').textContent = spotify.connected || state.demo ? 'Keine Wiedergabe' : 'Nicht verbunden';
-    $('np-artist').textContent = spotify.connected || state.demo ? '' : 'Spotify in den Einstellungen verbinden';
+    $('np-title').textContent = spotify.connected || state.demo ? 'Keine Wiedergabe' : 'Spotify verbinden';
+    $('np-artist').textContent = spotify.connected || state.demo ? '' : 'Hier tippen für die Einrichtung →';
     $('np-cover').removeAttribute('src');
     buildLyricsDOM();
     bpmPulse.stop();
@@ -567,7 +567,7 @@ function setupThemeStrip() {
       strip.appendChild(chip);
     }
     strip.hidden = false;
-    requestAnimationFrame(() => strip.classList.add('show'));
+    setTimeout(() => strip.classList.add('show'), 20);
   };
   const hide = () => {
     strip.classList.remove('show');
@@ -611,10 +611,11 @@ function openSheet() {
   buildSettingsSheet($('sheet-content'), sheetCtx());
   $('sheet-backdrop').hidden = false;
   $('settings-sheet').hidden = false;
-  requestAnimationFrame(() => {
+  // setTimeout, not rAF: rAF can be suspended in occluded tabs
+  setTimeout(() => {
     $('sheet-backdrop').classList.add('show');
     $('settings-sheet').classList.add('show');
-  });
+  }, 20);
 }
 
 function closeSheet() {
@@ -767,6 +768,15 @@ async function boot() {
 
   $('btn-start').addEventListener('click', () => start(false));
   $('btn-demo').addEventListener('click', () => start(true));
+
+  // tapping the bar while not connected jumps straight to the Spotify setup
+  $('np-meta').addEventListener('click', () => {
+    if (spotify.connected || state.demo) return;
+    openSheet();
+    setTimeout(() => {
+      document.getElementById('sp-group')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }, 500);
+  });
 
   $('np-play').addEventListener('click', () => { if (!state.demo) spotify.togglePlay(); });
   $('np-next').addEventListener('click', () => { if (!state.demo) spotify.control('next'); });

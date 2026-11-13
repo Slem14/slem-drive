@@ -406,6 +406,7 @@ export function buildSettingsSheet(container, ctx) {
 
   // ----- Colors -----
   const accentRow = row('Akzentfarbe');
+  accentRow.classList.add('stack'); // swatches get their own line on phones
   const sw = el('div', 'swatches');
   for (const c of SWATCHES) {
     const b = el('button', 'swatch' + (st.get('accent') === c ? ' sel' : ''));
@@ -530,24 +531,33 @@ export function buildSettingsSheet(container, ctx) {
       st.get('layout.nightDim'), (v) => S('layout.nightDim', v)),
   ));
 
-  // ----- Spotify -----
+  // ----- Spotify (guided setup) -----
   const statusRow = row('Status');
   statusRow.appendChild(el('span', null, spotify.connected ? 'Verbunden ✓' : 'Nicht verbunden'));
 
-  const idRow = row('Client-ID');
-  const idInput = document.createElement('input');
-  idInput.type = 'text'; idInput.placeholder = 'aus dem Spotify-Dashboard';
-  idInput.value = spotify.clientId;
-  idInput.addEventListener('change', () => { spotify.clientId = idInput.value; });
-  idRow.appendChild(idInput);
+  const dashRow = buttonRow('1 · Im Spotify-Dashboard eine App anlegen', 'Öffnen', () => {
+    window.open('https://developer.spotify.com/dashboard', '_blank');
+  });
 
-  const uriRow = buttonRow('Redirect-URI', 'Kopieren', async () => {
-    try { await navigator.clipboard.writeText(ctx.redirectUri); toast('Kopiert: ' + ctx.redirectUri); }
+  const uriRow = buttonRow('2 · Diese Redirect-URI dort eintragen', 'Kopieren', async () => {
+    try { await navigator.clipboard.writeText(ctx.redirectUri); toast('Kopiert ✓ — im Dashboard bei „Redirect URI" einfügen'); }
     catch { prompt('Redirect-URI (manuell kopieren):', ctx.redirectUri); }
   });
 
+  const idRow = row('3 · Client-ID hier einfügen');
+  idRow.classList.add('stack');
+  const idInput = document.createElement('input');
+  idInput.type = 'text'; idInput.placeholder = 'Client-ID aus dem Dashboard';
+  idInput.style.maxWidth = 'none';
+  idInput.value = spotify.clientId;
+  idInput.addEventListener('change', () => {
+    spotify.clientId = idInput.value;
+    if (idInput.value.trim()) toast('Client-ID gespeichert ✓ — jetzt „Verbinden" tippen');
+  });
+  idRow.appendChild(idInput);
+
   const connRow = buttonRow(
-    spotify.connected ? 'Verbindung trennen' : 'Mit Spotify verbinden',
+    spotify.connected ? 'Verbindung trennen' : '4 · Mit Spotify anmelden',
     spotify.connected ? 'Trennen' : 'Verbinden',
     () => {
       if (spotify.connected) { spotify.disconnect(); buildSettingsSheet(container, ctx); }
@@ -569,9 +579,13 @@ export function buildSettingsSheet(container, ctx) {
   });
   stuckRow.appendChild(stuckInput);
 
-  const spGroup = group('Spotify', statusRow, idRow, uriRow, connRow, stuckRow);
-  spGroup.appendChild(el('p', 'set-note',
-    'Einrichtung: Auf developer.spotify.com eine App anlegen, die Redirect-URI oben eintragen und das eigene Spotify-Konto unter „User Management" hinzufügen. Für die Wiedergabesteuerung wird Spotify Premium benötigt.'));
+  const spGroup = spotify.connected
+    ? group('Spotify', statusRow, connRow)
+    : group('Spotify', statusRow, dashRow, uriRow, idRow, connRow, stuckRow);
+  spGroup.id = 'sp-group';
+  spGroup.appendChild(el('p', 'set-note', spotify.connected
+    ? 'Verbunden. Steuern (Play/Pause/Weiter) braucht Spotify Premium; Titel & Lyrics gehen auch ohne.'
+    : 'So geht\'s: Schritt 1 öffnet developer.spotify.com (mit normalem Spotify-Konto einloggen) → „Create app" → beliebiger Name → bei „Redirect URIs" die kopierte Adresse aus Schritt 2 einfügen → „Web API" anhaken → Save. Dann im Dashboard unter Settings → „User Management" die eigene Spotify-E-Mail-Adresse hinzufügen. Client-ID kopieren (Schritt 3) und verbinden (Schritt 4). Steuern braucht Spotify Premium; Titel & Lyrics gehen ohne.'));
   container.appendChild(spGroup);
 
   // ----- Test -----
