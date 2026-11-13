@@ -6,7 +6,7 @@ const LS_PRESETS = 'slemdrive.presets.v1';
 
 // Shown in Einstellungen → Info so the running build can be identified.
 // Keep in step with VERSION in sw.js.
-export const APP_VERSION = 'v8';
+export const APP_VERSION = 'v9';
 
 export const BUILTIN_PRESETS = {
   ember:  { name: 'Ember',  accent: '#ff5e62', accent2: '#ffb347', blob1: '#7a1626', blob2: '#8a3b12', blob3: '#3c0f1e' },

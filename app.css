@@ -34,10 +34,19 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* The strip behind the home indicator sits OUTSIDE the layout viewport, so no
+   position:fixed element can paint it — iOS fills it from the root element's
+   background (the "canvas"). A near-black root therefore shows up as a black
+   bar under the now-playing bar no matter how far #bg bleeds. Tinting the root
+   with the current blob colour makes that strip continue the gradient. */
+html {
+  background-color: #140a0f; /* fallback for engines without color-mix */
+  background-color: color-mix(in srgb, var(--blob2) 42%, var(--bg-base));
+}
+
 html, body {
   height: 100%;
   overflow: hidden;
-  background: var(--bg-base);
   color: #f2f5fa;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
   -webkit-font-smoothing: antialiased;
