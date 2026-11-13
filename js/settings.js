@@ -40,6 +40,7 @@ export const DEFAULTS = {
   lyrics: { size: 'm', align: 'center', weight: 700, blur: 1, glow: true, offset: 0, showInTacho: true },
   react: { palette: true, pulse: true, mic: false, micSens: 1, bpm: false, speed: true },
   warn: { tolerance: 5, sound: false, soundStyle: 'chime', vignette: true },
+  weather: { enabled: true, effects: true, warnKmh: 70 },
   layout: { defaultView: 'tacho', swipe: true, barCompact: false, nightDim: 'off' }, // off | auto | on
 };
 
@@ -194,6 +195,7 @@ export class Settings {
     b.classList.toggle('lyr-glow', d.lyrics.glow);
     b.classList.toggle('hide-npline', !d.lyrics.showInTacho);
     b.classList.toggle('np-compact', d.layout.barCompact);
+    b.classList.toggle('wx-effects', d.weather.enabled && d.weather.effects);
 
     this.applyNightDim();
   }
@@ -444,26 +446,19 @@ export function buildSettingsSheet(container, ctx) {
     ], st.get('bgMode'), (v) => { S('bgMode', v); ctx.onReactChange(); }),
     sliderRow('Blob-Intensität', 0, 1.5, 0.05, st.get('blobIntensity'), (v) => S('blobIntensity', v)),
     sliderRow('Blur-Stärke', 6, 40, 1, st.get('blur'), (v) => S('blur', v)),
-    sliderRow('Glas-Deckkraft', 0.4, 1.4, 0.05, st.get('glassOpacity'), (v) => S('glassOpacity', v)),
     toggleRow('Filmkorn', st.get('grain'), (v) => S('grain', v)),
   ));
 
-  // ----- Advanced per-element colors -----
+  // ----- Advanced per-element colors (kept deliberately small) -----
   const C = (key) => (v) => { S('colors.' + key, v); ctx.onReactChange(); };
   const adv = group('Erweiterte Farben',
     toggleRow('Album darf Akzente umfärben', st.get('colors.albumAccents'), C('albumAccents')),
     sliderRow('Glow-Stärke', 0, 2, 0.1, st.get('colors.glow'), (v) => S('colors.glow', v)),
-    colorRow('Gauge-Verlauf Anfang', st.get('colors.arc1'), C('arc1')),
-    colorRow('Gauge-Verlauf Ende', st.get('colors.arc2'), C('arc2')),
     colorRow('Tacho-Zahl', st.get('colors.speedNum'), C('speedNum')),
     colorRow('Hintergrund-Blob 1', st.get('colors.blob1'), C('blob1')),
     colorRow('Hintergrund-Blob 2', st.get('colors.blob2'), C('blob2')),
     colorRow('Hintergrund-Blob 3', st.get('colors.blob3'), C('blob3')),
-    colorRow('Lyrics aktive Zeile', st.get('colors.lyricsActive'), C('lyricsActive')),
-    colorRow('Lyrics inaktive Zeilen', st.get('colors.lyricsInactive'), C('lyricsInactive')),
-    colorRow('Lyric-Zeile in der Leiste', st.get('colors.npLyric'), C('npLyric')),
-    colorRow('Schild-Ring', st.get('colors.limitRing'), C('limitRing')),
-    colorRow('Straßenname', st.get('colors.roadName'), C('roadName')),
+    colorRow('Lyrics-Farbe', st.get('colors.lyricsActive'), C('lyricsActive')),
   );
   adv.appendChild(el('p', 'set-note',
     '„Auto" = Farbe folgt dem Theme bzw. dem Album-Cover. Eigene Blob-Farben werden nie vom Cover überschrieben.'));
@@ -473,9 +468,6 @@ export function buildSettingsSheet(container, ctx) {
   container.appendChild(group('Tacho',
     selectRow('Stil', [['arc', 'Bogen-Gauge'], ['digital', 'Nur digital'], ['minimal', 'Minimaler Ring']],
       st.get('gauge.style'), (v) => S('gauge.style', v)),
-    selectRow('Zahlen-Gewicht', [[100, 'Ultraleicht'], [200, 'Dünn'], [300, 'Leicht'], [500, 'Mittel']],
-      st.get('gauge.weight'), (v) => S('gauge.weight', parseInt(v, 10))),
-    sliderRow('Gauge-Dicke', 6, 24, 1, st.get('gauge.thickness'), (v) => { S('gauge.thickness', v); ctx.onGaugeRedraw?.(); }),
     toggleRow('Skalenstriche', st.get('gauge.ticks'), (v) => { S('gauge.ticks', v); ctx.onGaugeRedraw?.(); }),
     selectRow('Einheit', [['kmh', 'km/h'], ['mph', 'mph']], st.get('gauge.unit'), (v) => S('gauge.unit', v)),
     toggleRow('Straßenname anzeigen', st.get('gauge.showRoad'), (v) => S('gauge.showRoad', v)),
@@ -485,16 +477,12 @@ export function buildSettingsSheet(container, ctx) {
   container.appendChild(group('Tempolimit-Schild',
     selectRow('Größe', [['s', 'Klein'], ['m', 'Mittel'], ['l', 'Groß']], st.get('limit.size'), (v) => S('limit.size', v)),
     selectRow('Position', [['below', 'Unter dem Tacho'], ['corner', 'Ecke']], st.get('limit.pos'), (v) => S('limit.pos', v)),
-    toggleRow('„Unbekannt" anzeigen', st.get('limit.showUnknown'), (v) => S('limit.showUnknown', v)),
   ));
 
   // ----- Lyrics -----
   container.appendChild(group('Lyrics',
     selectRow('Größe', [['s', 'S'], ['m', 'M'], ['l', 'L'], ['xl', 'XL']], st.get('lyrics.size'), (v) => S('lyrics.size', v)),
     selectRow('Ausrichtung', [['center', 'Zentriert'], ['left', 'Links']], st.get('lyrics.align'), (v) => S('lyrics.align', v)),
-    selectRow('Schriftgewicht', [[500, 'Mittel'], [600, 'Halbfett'], [700, 'Fett'], [800, 'Extrafett']],
-      st.get('lyrics.weight'), (v) => S('lyrics.weight', parseInt(v, 10))),
-    sliderRow('Unschärfe inaktiver Zeilen', 0, 2, 0.1, st.get('lyrics.blur'), (v) => S('lyrics.blur', v)),
     toggleRow('Glow', st.get('lyrics.glow'), (v) => S('lyrics.glow', v)),
     sliderRow('Offset (Sekunden)', -2, 2, 0.1, st.get('lyrics.offset'), (v) => S('lyrics.offset', v)),
     toggleRow('Lyric-Zeile im Tacho', st.get('lyrics.showInTacho'), (v) => S('lyrics.showInTacho', v)),
@@ -521,6 +509,16 @@ export function buildSettingsSheet(container, ctx) {
     selectRow('Ton', [['chime', 'Sanfter Klang'], ['beep', 'Kurzer Piep'], ['voice', 'Stimme „Tempolimit"']],
       st.get('warn.soundStyle'), (v) => S('warn.soundStyle', v)),
   ));
+
+  // ----- Weather -----
+  const wxGroup = group('Wetter',
+    toggleRow('Wetter anzeigen', st.get('weather.enabled'), (v) => { S('weather.enabled', v); ctx.onWeatherChange?.(); }),
+    toggleRow('Wetter-Stimmung im Hintergrund', st.get('weather.effects'), (v) => { S('weather.effects', v); ctx.onWeatherChange?.(); }),
+    sliderRow('Wind-Warnung ab (km/h)', 40, 120, 5, st.get('weather.warnKmh'), (v) => S('weather.warnKmh', v)),
+  );
+  wxGroup.appendChild(el('p', 'set-note',
+    'Außentemperatur, gefühlte Temperatur und Wind relativ zur Fahrtrichtung (Daten: Open-Meteo). Eine Innenraum-Temperatur kann das iPhone leider nicht messen.'));
+  container.appendChild(wxGroup);
 
   // ----- Layout -----
   container.appendChild(group('Layout',

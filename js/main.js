@@ -10,6 +10,10 @@ import {
 } from './color.js';
 import { Settings, buildSettingsSheet } from './settings.js';
 import { DemoMode, DEMO_LRC } from './demo.js';
+import {
+  WeatherService, conditionEmoji, relativeWindAngle, windSideLabel,
+} from './weather.js';
+import { WeatherFX } from './wx-fx.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -21,6 +25,8 @@ const limits = new LimitService();
 const spotify = new SpotifyService();
 const micBeat = new MicBeat();
 const bpmPulse = new BpmPulse();
+const weather = new WeatherService();
+const weatherFX = new WeatherFX(document.getElementById('wx-canvas'));
 
 const state = {
   started: false,
@@ -37,6 +43,8 @@ const state = {
   overspeed: false,
   overspeedSoundArmed: true,
   wakeLock: null,
+  heading: null,
+  wx: null,              // latest weather data (live or demo)
 };
 
 // ---------- toast ----------
@@ -128,7 +136,7 @@ function updateGauge(kmh) {
 function updateGaugeMax(kmh) {
   const limitKmh = state.limit.state === 'limit' ? state.limit.kmh : 0;
   const needed = Math.max(kmh, limitKmh) + 12;
-  const steps = [120, 180, 260];
+  const steps = [120, 180, 220]; // top step fits the car's real ~203 km/h max
   let target = steps.find((s) => s >= needed) || steps[steps.length - 1];
   // step down only with margin, so the scale doesn't bounce
   if (target < state.gaugeMax && needed > target - 35) target = state.gaugeMax;
@@ -390,12 +398,71 @@ function onPlayback(p) {
   $('ic-pause').hidden = !p.isPlaying;
 }
 
+// ---------- weather ----------
+
+function renderWeather(wx) {
+  state.wx = wx;
+  const block = $('weather-block');
+  const enabled = settings.get('weather.enabled');
+  block.hidden = !enabled || !wx;
+
+  const body = document.body;
+  if (!enabled || !wx) {
+    delete body.dataset.wx;
+    delete body.dataset.daynight;
+    weatherFX.stop();
+    weatherFX.condition = null;
+    return;
+  }
+
+  // background mood
+  body.dataset.wx = wx.condition;
+  body.dataset.daynight = wx.isDay ? 'day' : 'night';
+  if (settings.get('weather.effects')) {
+    weatherFX.setWind(relativeWindAngle(wx.windFromDeg, state.heading ?? 0), wx.windKmh);
+    weatherFX.set(wx.condition, wx.isDay);
+  } else {
+    weatherFX.stop();
+    weatherFX.condition = null;
+  }
+
+  // temperature chip ("in-car" temp isn't readable on iPhones; feels-like instead)
+  $('wx-icon').textContent = conditionEmoji(wx.condition, wx.isDay);
+  $('wx-temp').textContent = `${wx.tempC}°`;
+  $('wx-feels').textContent = wx.feelsC !== wx.tempC ? `gefühlt ${wx.feelsC}°` : '';
+
+  $('wind-kmh').textContent = wx.windKmh;
+  updateWindRose();
+
+  // strong-wind warning, same alarm language as overspeed
+  const warn = Math.max(wx.windKmh, wx.gustKmh || 0) >= settings.get('weather.warnKmh');
+  $('wind-chip').classList.toggle('warn', warn);
+}
+
+// Rotate the wind arrow to where the wind comes from, relative to the
+// car nose (which always points up in the rose).
+function updateWindRose() {
+  const wx = state.wx;
+  const arrow = $('wind-arrow');
+  if (!wx || wx.windFromDeg == null) { arrow.setAttribute('opacity', '0'); return; }
+  const rel = relativeWindAngle(wx.windFromDeg, state.heading ?? 0);
+  arrow.setAttribute('opacity', '1');
+  arrow.style.transform = `rotate(${rel}deg)`;
+  $('wind-side').textContent = state.heading != null ? windSideLabel(rel) : '';
+  weatherFX.setWind(rel, wx.windKmh); // rain/snow lean with the crosswind
+}
+
 // ---------- GPS wiring ----------
 
 function onFix(fix) {
   state.targetKmh = fix.speedKmh;
-  if (fix.demo) return; // demo feeds limits directly
+  if (fix.heading != null) {
+    state.heading = fix.heading;
+    updateWindRose();
+  }
+  if (fix.demo) return; // demo feeds limits + weather directly
   limits.onFix(fix);
+  if (settings.get('weather.enabled')) weather.maybeFetch(fix);
 }
 
 limits.onUpdate = (res) => renderLimit(res);
@@ -536,6 +603,7 @@ function sheetCtx() {
     onDemoToggle: (on) => (on ? startDemo() : stopDemo()),
     onGaugeRedraw: () => drawGaugeStatic(),
     onReactChange: () => applyReactivity(),
+    onWeatherChange: () => renderWeather(state.wx),
   };
 }
 
@@ -618,6 +686,7 @@ function startDemo() {
     onLimit: (lim) => renderLimit(lim),
     onTrack: (t) => onTrack(t),
     onPlayback: (p) => onPlayback(p),
+    onWeather: (wx) => renderWeather(wx),
   });
   state.demo.start();
   toast('Demo-Modus aktiv');
@@ -629,6 +698,7 @@ function stopDemo() {
   state.demo = null;
   state.targetKmh = 0;
   renderLimit({ state: 'unknown', roadName: '' });
+  renderWeather(weather.data); // back to real weather (or none)
   if (spotify.connected) spotify.startPolling();
 }
 
@@ -681,6 +751,9 @@ async function boot() {
   spotify.onToast = toast;
   spotify.onTrack = onTrack;
   spotify.onPlayback = onPlayback;
+
+  weather.onUpdate = (wx) => { if (!state.demo) renderWeather(wx); };
+  if (weather.data) renderWeather(weather.data); // cached from last session
 
   // Spotify redirect handling (incl. stranded-in-Safari case)
   const redirect = await spotify.handleRedirect();

@@ -16,11 +16,14 @@
 </head>
 <body>
 
-  <!-- Animated background: color blobs + grain -->
+  <!-- Animated background: color blobs + weather mood + grain -->
   <div id="bg" aria-hidden="true">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
+    <div id="wx-tint"></div>
+    <div id="wx-fx"></div>
+    <canvas id="wx-canvas"></canvas>
     <div class="grain"></div>
   </div>
 
@@ -58,6 +61,26 @@
     <div id="views">
       <!-- Tacho view -->
       <section id="view-tacho" class="view active">
+        <div id="weather-block" hidden>
+          <div id="wx-chip" class="glass wx-item">
+            <span id="wx-icon">☁️</span>
+            <span id="wx-temp">–°</span>
+            <span id="wx-feels"></span>
+          </div>
+          <div id="wind-chip" class="glass wx-item">
+            <svg id="wind-rose" viewBox="0 0 44 44" aria-hidden="true">
+              <circle cx="22" cy="22" r="20" fill="none" stroke="rgba(255,255,255,.18)" stroke-width="1.5"/>
+              <path d="M22 15 L26 28 L22 25.4 L18 28 Z" fill="rgba(255,255,255,.85)"/>
+              <g id="wind-arrow" opacity="0">
+                <path d="M22 2.5 L25 9 L22 7.4 L19 9 Z" fill="var(--accent)"/>
+              </g>
+            </svg>
+            <div id="wind-meta">
+              <span id="wind-kmh">–</span>
+              <span id="wind-side"></span>
+            </div>
+          </div>
+        </div>
         <div id="gauge-wrap">
           <svg id="gauge" viewBox="0 0 300 300" aria-hidden="true">
             <defs>

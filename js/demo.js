@@ -9,7 +9,8 @@ const DRIVE = [
   [8,   32, { state: 'limit', kmh: 30 },  'Gartenweg (Zone 30)'],
   [8,   58, { state: 'limit', kmh: 50 },  'Hauptstraße'],
   [10,  97, { state: 'limit', kmh: 100 }, 'L 147'],
-  [16, 158, { state: 'none' },            'A 9'], // no limit: 130–160 is normal cruising, no warning
+  [12, 158, { state: 'none' },            'A 9'], // no limit: 130–160 is normal cruising, no warning
+  [8,  196, { state: 'none' },            'A 9'], // full sprint — still no warning without a limit
   [10, 136, { state: 'limit', kmh: 120 }, 'A 9'], // overspeed: triggers the warning
   [8,  128, { state: 'variable' },        'A 9'],
   [8,   75, { state: 'limit', kmh: 100 }, 'L 147'],
@@ -86,12 +87,25 @@ export function demoCover() {
   return c.toDataURL('image/png');
 }
 
+// Weather moods cycled in demo mode so every background can be seen.
+const DEMO_WEATHER = [
+  { condition: 'clear', isDay: true, tempC: 24, feelsC: 26, windKmh: 14, gustKmh: 22, windFromDeg: 80 },
+  { condition: 'cloudy', isDay: true, tempC: 16, feelsC: 15, windKmh: 25, gustKmh: 38, windFromDeg: 170 },
+  { condition: 'rain', isDay: true, tempC: 11, feelsC: 9, windKmh: 38, gustKmh: 55, windFromDeg: 250 },
+  { condition: 'storm', isDay: false, tempC: 13, feelsC: 10, windKmh: 58, gustKmh: 88, windFromDeg: 300 },
+  { condition: 'snow', isDay: true, tempC: -2, feelsC: -7, windKmh: 20, gustKmh: 30, windFromDeg: 10 },
+  { condition: 'fog', isDay: true, tempC: 6, feelsC: 5, windKmh: 7, gustKmh: 11, windFromDeg: 120 },
+  { condition: 'clear', isDay: false, tempC: 12, feelsC: 12, windKmh: 9, gustKmh: 14, windFromDeg: 200 },
+];
+const DEMO_WEATHER_STEP = 14; // seconds per mood
+
 export class DemoMode {
-  constructor({ onFix, onLimit, onTrack, onPlayback }) {
+  constructor({ onFix, onLimit, onTrack, onPlayback, onWeather }) {
     this.onFix = onFix;
     this.onLimit = onLimit;
     this.onTrack = onTrack;
     this.onPlayback = onPlayback;
+    this.onWeather = onWeather;
     this.timer = null;
     this.active = false;
   }
@@ -104,6 +118,8 @@ export class DemoMode {
     this.speed = 0;
     this.songT = 0;
     this.lastLimitKey = null;
+    this.wxT = 0;
+    this.wxIdx = -1;
 
     const cover = demoCover();
     this.onTrack({ ...DEMO_TRACK, cover });
@@ -148,6 +164,14 @@ export class DemoMode {
     if (key !== this.lastLimitKey) {
       this.lastLimitKey = key;
       this.onLimit({ ...limit, roadName: road });
+    }
+
+    // cycle the weather moods
+    this.wxT += dt;
+    const wxIdx = Math.floor(this.wxT / DEMO_WEATHER_STEP) % DEMO_WEATHER.length;
+    if (wxIdx !== this.wxIdx && this.onWeather) {
+      this.wxIdx = wxIdx;
+      this.onWeather({ ...DEMO_WEATHER[wxIdx], at: Date.now() });
     }
 
     // loop the demo song

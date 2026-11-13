@@ -11,7 +11,12 @@ Tacho, Tempolimit-Anzeige und Live-Lyrics fürs Auto — als Web-App fürs iPhon
 - **Design:** alles anpassbar — Themes, Presets und unter **„Erweiterte Farben"** jede einzelne Farbe
   (Gauge, Tacho-Zahl, Blobs, Lyrics, Schild-Ring …) mit „Auto"-Rückfall aufs Theme, Glow-Regler und
   🎲-Zufallstheme. Die Farben passen sich dem Album-Cover und der Musik an; eigene Farben bleiben fixiert.
-- **Demo-Modus:** zum Ausprobieren zu Hause, ohne GPS und ohne Spotify.
+- **Wetter:** Außentemperatur + gefühlte Temperatur, Wind mit Richtung relativ zur
+  Fahrtrichtung (von welcher Seite, wie stark in km/h) inkl. Warnung bei starkem Wind —
+  und der Hintergrund lebt mit: Regen, Schnee, Sonne, Wolken, Nebel, Sternenhimmel bei Nacht
+  (Daten: Open-Meteo, kostenlos).
+- **Demo-Modus:** zum Ausprobieren zu Hause, ohne GPS und ohne Spotify — wechselt auch
+  durch alle Wetter-Stimmungen.
 
 > ⚠️ **Schilder an der Straße haben immer Vorrang.** Baustellen, temporäre Limits und
 > elektronische Autobahn-Anzeigen fehlen in den Kartendaten. Tempolimit-Daten:
